@@ -61,6 +61,11 @@ tasks {
     test {
         useJUnit()
     }
+
+    // headless 打包时禁用 searchable options 构建，避免 UI/Locale 相关报错
+    named<org.jetbrains.intellij.platform.gradle.tasks.BuildSearchableOptionsTask>("buildSearchableOptions") {
+        enabled = false
+    }
 }
 
 kotlin {
