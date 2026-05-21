@@ -74,4 +74,44 @@ class InsertPayloadResolverTest : BasePlatformTestCase() {
         val range = payload.lineRange
         assertNull("Line range must be null when there is no selection", range)
     }
+
+    fun testProjectFileSelectionProducesMultipleReferences() {
+        val first = myFixture.tempDirFixture.createFile("src/Foo.kt", "class Foo")
+        val second = myFixture.tempDirFixture.createFile("src/Bar.kt", "class Bar")
+
+        val payload = InsertPayloadResolver.resolve(
+            project = project,
+            files = arrayOf(first, second)
+        )
+
+        assertNotNull("Payload should be resolved for Project View files", payload)
+        payload!!
+
+        assertEquals(2, payload.relativePaths.size)
+        assertTrue(payload.relativePaths[0].endsWith("src/Foo.kt"))
+        assertTrue(payload.relativePaths[1].endsWith("src/Bar.kt"))
+        assertNull("Project View payloads should not include line ranges", payload.lineRange)
+        assertEquals(
+            "${payload.relativePaths[0]} ${payload.relativePaths[1]} ",
+            InsertPayloadResolver.formatInsertText(payload)
+        )
+    }
+
+    fun testProjectDirectorySelectionOmitsSelectedDescendants() {
+        val dir = myFixture.tempDirFixture.findOrCreateDir("src")
+        val child = myFixture.tempDirFixture.createFile("src/Foo.kt", "class Foo")
+
+        val payload = InsertPayloadResolver.resolve(
+            project = project,
+            file = dir,
+            files = arrayOf(child)
+        )
+
+        assertNotNull("Payload should be resolved for Project View directories", payload)
+        payload!!
+
+        assertEquals(1, payload.relativePaths.size)
+        assertTrue(payload.relativePath.endsWith("src"))
+        assertFalse("Directory selection should not duplicate descendants", payload.relativePath.contains("Foo.kt"))
+    }
 }

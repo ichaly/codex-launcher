@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.github.x0x0b"
-version = "1.1.8"
+version = "1.1.15"
 
 repositories {
     mavenCentral()
@@ -60,6 +60,10 @@ tasks {
     
     test {
         useJUnit()
+    }
+
+    buildSearchableOptions {
+        enabled = false
     }
 }
 

@@ -15,30 +15,41 @@ object InsertPayloadResolver {
     fun resolve(
         project: Project,
         editor: Editor? = null,
-        file: VirtualFile? = null
+        file: VirtualFile? = null,
+        files: Array<VirtualFile>? = null
     ): InsertPayload? {
         val editorManager = FileEditorManager.getInstance(project)
+        val selectedFiles = files?.takeIf { it.isNotEmpty() }
+        if (editor == null && selectedFiles != null) {
+            val focusedFile = file
+            val references = normalizeProjectSelection(selectedFiles, focusedFile)
+                .mapNotNull { selectedFile -> resolveRelativePath(project, selectedFile) }
+
+            return references.takeIf { it.isNotEmpty() }?.let { InsertPayload(it, null) }
+        }
+
         val targetFile = file ?: editorManager.selectedFiles.firstOrNull() ?: return null
         val relativePath = resolveRelativePath(project, targetFile) ?: return null
 
         val targetEditor = editor ?: editorManager.selectedTextEditor
         val lineRange = targetEditor?.let { resolveSelectionLineRange(it) }
 
-        return InsertPayload(relativePath, lineRange)
+        return InsertPayload(listOf(relativePath), lineRange)
     }
 
     fun formatInsertText(payload: InsertPayload): String {
-        return buildString {
-            append(payload.relativePath)
-            payload.lineRange?.let { range ->
-                append(':')
-                append(range.start)
-                range.end?.takeIf { it != range.start }?.let { end ->
-                    append('-')
-                    append(end)
+        return payload.relativePaths.joinToString(separator = " ", postfix = " ") { relativePath ->
+            buildString {
+                append(relativePath)
+                payload.lineRange?.let { range ->
+                    append(':')
+                    append(range.start)
+                    range.end?.takeIf { it != range.start }?.let { end ->
+                        append('-')
+                        append(end)
+                    }
                 }
             }
-            append(' ')
         }
     }
 
@@ -89,8 +100,37 @@ object InsertPayloadResolver {
         val end = (endLine + 1).takeIf { it > start }
         return LineRange(start, end)
     }
+
+    private fun normalizeProjectSelection(
+        selectedFiles: Array<VirtualFile>,
+        focusedFile: VirtualFile?
+    ): List<VirtualFile> {
+        val all = LinkedHashMap<String, VirtualFile>()
+        selectedFiles.forEach { all[it.path] = it }
+
+        if (focusedFile != null && focusedFile.isDirectory) {
+            all.putIfAbsent(focusedFile.path, focusedFile)
+        }
+
+        val kept = mutableListOf<VirtualFile>()
+        for (candidate in all.values.sortedBy { it.path.length }) {
+            val candidatePath = candidate.path.trimEnd('/')
+            val hasSelectedParent = kept.any { parent ->
+                val parentPath = parent.path.trimEnd('/')
+                candidatePath == parentPath || candidatePath.startsWith("$parentPath/")
+            }
+            if (!hasSelectedParent) {
+                kept.add(candidate)
+            }
+        }
+
+        return kept
+    }
 }
 
-data class InsertPayload(val relativePath: String, val lineRange: LineRange?)
+data class InsertPayload(val relativePaths: List<String>, val lineRange: LineRange?) {
+    val relativePath: String
+        get() = relativePaths.first()
+}
 
 data class LineRange(val start: Int, val end: Int?)

@@ -23,8 +23,8 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
         private const val NOTIFICATION_TITLE = "Codex Launcher"
         private const val DEFAULT_TEXT = "Launch Codex"
         private const val DEFAULT_DESCRIPTION = "Open a Codex terminal"
-        private const val ACTIVE_TEXT = "Insert File Path into Codex"
-        private const val ACTIVE_DESCRIPTION = "Send the current file path to the Codex terminal"
+        private const val ACTIVE_TEXT = "Launch New Codex"
+        private const val ACTIVE_DESCRIPTION = "Open another Codex terminal"
         private val DEFAULT_ICON = IconLoader.getIcon("/icons/codex.svg", LaunchCodexAction::class.java)
         private val ACTIVE_ICON = IconLoader.getIcon("/icons/codex_active.svg", LaunchCodexAction::class.java)
     }
@@ -39,11 +39,6 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
         }
 
         val terminalManager = project.service<CodexTerminalManager>()
-        if (terminalManager.isCodexTerminalActive()) {
-            performInsert(project, terminalManager)
-            return
-        }
-
         launchCodex(project, terminalManager)
     }
 
@@ -55,24 +50,7 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
         e.presentation.description = state.description
     }
 
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
-
-    private fun performInsert(project: Project, terminalManager: CodexTerminalManager) {
-        val payload = InsertPayloadResolver.resolve(project)
-        if (payload == null) {
-            notify(project, "No active file to send to Codex", NotificationType.INFORMATION)
-            return
-        }
-
-        val insertText = InsertPayloadResolver.formatInsertText(payload)
-
-        if (!terminalManager.typeIntoActiveCodexTerminal(insertText)) {
-            notify(project, "Failed to send file path to Codex terminal", NotificationType.WARNING)
-            return
-        }
-
-        logger.info("Sent active file path to Codex terminal: $insertText")
-    }
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     private fun launchCodex(project: Project, terminalManager: CodexTerminalManager) {
         val baseDir = project.basePath ?: System.getProperty("user.home")
@@ -122,7 +100,7 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
         }
 
         val manager = project.service<CodexTerminalManager>()
-        return if (manager.isCodexTerminalActive()) {
+        return if (manager.hasCodexTerminal()) {
             ToolbarState(ACTIVE_ICON, ACTIVE_TEXT, ACTIVE_DESCRIPTION)
         } else {
             ToolbarState(DEFAULT_ICON, DEFAULT_TEXT, DEFAULT_DESCRIPTION)

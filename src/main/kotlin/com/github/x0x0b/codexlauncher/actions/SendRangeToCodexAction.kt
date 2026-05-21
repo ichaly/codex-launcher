@@ -12,77 +12,88 @@ import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
+import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiFileSystemItem
 
 class SendRangeToCodexAction : AnAction(
-    "Send Selection/Class to Codex",
-    "Send the highlighted range or enclosing class lines to the Codex terminal",
+    "Add to Codex",
+    "Send the current selection, file, or Project View items to the Codex terminal",
     IconLoader.getIcon("/icons/codex_active.svg", SendRangeToCodexAction::class.java)
 ), DumbAware {
 
     companion object {
         private const val NOTIFICATION_TITLE = "Codex Launcher"
+        private const val PROJECT_VIEW_POPUP_PREFIX = "ProjectViewPopup"
     }
 
     private val logger = logger<SendRangeToCodexAction>()
 
     override fun actionPerformed(e: AnActionEvent) {
-        val project = e.project
+        val project = e.project ?: return
         val editor = e.getData(CommonDataKeys.EDITOR)
-        val virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE)
-        if (project == null || editor == null) {
-            return
-        }
+        val virtualFile = resolveVirtualFile(e)
+        val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
 
         val payload = InsertPayloadResolver.resolve(
             project = project,
             editor = editor,
-            file = virtualFile
+            file = virtualFile,
+            files = virtualFiles
         )
 
         if (payload == null) {
-            notify(project, "Unable to determine selection or enclosing class", NotificationType.INFORMATION)
+            notify(project, "Unable to determine selection or file context", NotificationType.INFORMATION)
             return
         }
 
         val insertText = InsertPayloadResolver.formatInsertText(payload)
         val terminalManager = project.service<CodexTerminalManager>()
-        if (!terminalManager.isCodexTerminalActive()) {
+        if (!terminalManager.hasCodexTerminal()) {
             notify(project, "Launch Codex first to send ranges", NotificationType.INFORMATION)
             return
         }
 
-        if (!terminalManager.typeIntoActiveCodexTerminal(insertText)) {
+        if (!terminalManager.typeIntoCodexTerminal(insertText)) {
             notify(project, "Failed to send range to Codex terminal", NotificationType.WARNING)
             return
         }
 
-        logger.info("Sent editor range to Codex terminal: $insertText")
+        logger.info("Sent context to Codex terminal: $insertText")
     }
 
     override fun update(e: AnActionEvent) {
         val project = e.project
+        if (project == null) {
+            e.presentation.isEnabledAndVisible = false
+            return
+        }
+
+        val hasCodexTerminal = project.service<CodexTerminalManager>().hasCodexTerminal()
+
+        if (e.place.startsWith(PROJECT_VIEW_POPUP_PREFIX)) {
+            e.presentation.isEnabledAndVisible = hasCodexTerminal
+            return
+        }
+
+        if (!hasCodexTerminal) {
+            e.presentation.isEnabledAndVisible = false
+            return
+        }
+
         val editor = e.getData(CommonDataKeys.EDITOR)
+        val virtualFile = resolveVirtualFile(e)
+        val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
 
-        if (project == null || editor == null) {
-            e.presentation.isEnabledAndVisible = false
-            return
-        }
-
-        val terminalManager = project.service<CodexTerminalManager>()
-        if (!terminalManager.isCodexTerminalActive()) {
-            e.presentation.isEnabledAndVisible = false
-            return
-        }
-
-        val hasSelection = editor.selectionModel.hasSelection()
+        val hasFileContext = virtualFile != null
+        val hasProjectSelection = !virtualFiles.isNullOrEmpty()
         val inContextBar = e.place == "EditorContextBar"
 
-        val visible = !inContextBar || hasSelection
+        val visible = hasFileContext || hasProjectSelection
         e.presentation.isVisible = visible
-        e.presentation.isEnabled = visible && (hasSelection || !inContextBar)
+        e.presentation.isEnabled = visible && (!inContextBar || editor?.selectionModel?.hasSelection() == true)
     }
 
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
     private fun notify(project: Project, content: String, type: NotificationType) {
         runCatching {
@@ -91,5 +102,11 @@ class SendRangeToCodexAction : AnAction(
         }.onFailure { error ->
             logger.warn("Failed to display notification: $content", error)
         }
+    }
+
+    private fun resolveVirtualFile(e: AnActionEvent): VirtualFile? {
+        return e.getData(CommonDataKeys.VIRTUAL_FILE)
+            ?: e.getData(CommonDataKeys.PSI_FILE)?.virtualFile
+            ?: (e.getData(CommonDataKeys.PSI_ELEMENT) as? PsiFileSystemItem)?.virtualFile
     }
 }
