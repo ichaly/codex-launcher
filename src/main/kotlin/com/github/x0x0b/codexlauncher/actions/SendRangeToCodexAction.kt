@@ -16,13 +16,13 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFileSystemItem
 
 class SendRangeToCodexAction : AnAction(
-    "Add to Codex",
-    "Send the current selection, file, or Project View items to the Codex terminal",
+    "Add to Codex UI",
+    "Send the current selection, file, or Project View items to the Codex UI terminal",
     IconLoader.getIcon("/icons/codex_active.svg", SendRangeToCodexAction::class.java)
 ), DumbAware {
 
     companion object {
-        private const val NOTIFICATION_TITLE = "Codex Launcher"
+        private const val NOTIFICATION_TITLE = "Codex UI"
         private const val PROJECT_VIEW_POPUP_PREFIX = "ProjectViewPopup"
     }
 
@@ -49,16 +49,16 @@ class SendRangeToCodexAction : AnAction(
         val insertText = InsertPayloadResolver.formatInsertText(payload)
         val terminalManager = project.service<CodexTerminalManager>()
         if (!terminalManager.hasCodexTerminal()) {
-            notify(project, "Launch Codex first to send ranges", NotificationType.INFORMATION)
+            notify(project, "Launch Codex UI first to send ranges", NotificationType.INFORMATION)
             return
         }
 
         if (!terminalManager.typeIntoCodexTerminal(insertText)) {
-            notify(project, "Failed to send range to Codex terminal", NotificationType.WARNING)
+            notify(project, "Failed to send range to Codex UI terminal", NotificationType.WARNING)
             return
         }
 
-        logger.info("Sent context to Codex terminal: $insertText")
+        logger.info("Sent context to Codex UI terminal: $insertText")
     }
 
     override fun update(e: AnActionEvent) {
@@ -97,7 +97,7 @@ class SendRangeToCodexAction : AnAction(
 
     private fun notify(project: Project, content: String, type: NotificationType) {
         runCatching {
-            val group = NotificationGroupManager.getInstance().getNotificationGroup("CodexLauncher")
+            val group = NotificationGroupManager.getInstance().getNotificationGroup("CodexUI")
             group.createNotification(NOTIFICATION_TITLE, content, type).notify(project)
         }.onFailure { error ->
             logger.warn("Failed to display notification: $content", error)

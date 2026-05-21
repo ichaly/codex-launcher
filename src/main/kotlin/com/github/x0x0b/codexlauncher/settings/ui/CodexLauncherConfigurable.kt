@@ -67,9 +67,9 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         private const val COMMENT_FONT_SIZE_DELTA = 0.8f
     }
 
-    override fun getId(): String = "com.github.x0x0b.codexlauncher.settings"
+    override fun getId(): String = "com.github.ichaly.codex-ui.settings"
 
-    override fun getDisplayName(): String = "Codex Launcher"
+    override fun getDisplayName(): String = "Codex UI"
 
     override fun createComponent(): JComponent {
 
@@ -234,7 +234,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                     cell(openFileOnChangeCheckbox)
                 }
                 row {
-                    this.largeComment("Changes will take effect after restarting Codex.")
+                    this.largeComment("Changes will take effect after restarting Codex UI.")
                 }
             }
             group("Notifications") {
@@ -246,12 +246,12 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                 }
                 row {
                     this.largeComment(
-                        "Customize notification sounds and display options in <a href='notifications'>Settings &gt; Appearance &amp; Behavior &gt; Notifications &gt; CodexLauncher</a>.",
+                        "Customize notification sounds and display options in <a href='notifications'>Settings &gt; Appearance &amp; Behavior &gt; Notifications &gt; CodexUI</a>.",
                         action = HyperlinkEventAction { openApplicationConfigurable(NOTIFICATIONS_CONFIGURABLE_ID) }
                     )
                 }
                 row {
-                    this.largeComment("Changes will take effect after restarting Codex.")
+                    this.largeComment("Changes will take effect after restarting Codex UI.")
                 }
                 row {
                     val link = HyperlinkLabel("Learn more about IntelliJ notification settings")

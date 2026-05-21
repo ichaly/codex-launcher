@@ -20,11 +20,11 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
 
     companion object {
         private const val CODEX_COMMAND = "codex"
-        private const val NOTIFICATION_TITLE = "Codex Launcher"
-        private const val DEFAULT_TEXT = "Launch Codex"
-        private const val DEFAULT_DESCRIPTION = "Open a Codex terminal"
-        private const val ACTIVE_TEXT = "Launch New Codex"
-        private const val ACTIVE_DESCRIPTION = "Open another Codex terminal"
+        private const val NOTIFICATION_TITLE = "Codex UI"
+        private const val DEFAULT_TEXT = "Launch Codex UI"
+        private const val DEFAULT_DESCRIPTION = "Open a Codex UI terminal"
+        private const val ACTIVE_TEXT = "Launch New Codex UI"
+        private const val ACTIVE_DESCRIPTION = "Open another Codex UI terminal"
         private val DEFAULT_ICON = IconLoader.getIcon("/icons/codex.svg", LaunchCodexAction::class.java)
         private val ACTIVE_ICON = IconLoader.getIcon("/icons/codex_active.svg", LaunchCodexAction::class.java)
     }
@@ -34,7 +34,7 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project
         if (project == null) {
-            logger.warn("No project context available for Codex launch")
+            logger.warn("No project context available for Codex UI launch")
             return
         }
 
@@ -54,7 +54,7 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
 
     private fun launchCodex(project: Project, terminalManager: CodexTerminalManager) {
         val baseDir = project.basePath ?: System.getProperty("user.home")
-        logger.info("Launching Codex in directory: $baseDir")
+        logger.info("Launching Codex UI in directory: $baseDir")
 
         try {
             val httpService = ApplicationManager.getApplication().service<HttpTriggerService>()
@@ -68,10 +68,10 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
             val settings = project.service<CodexLauncherSettings>()
             val command = buildCommand(settings.getArgs(port, baseDir))
             terminalManager.launch(baseDir, command)
-            logger.info("Codex command executed successfully: $command")
+            logger.info("Codex UI command executed successfully: $command")
         } catch (t: Throwable) {
-            logger.error("Failed to launch Codex", t)
-            notify(project, "Failed to launch Codex: ${t.message}", NotificationType.ERROR)
+            logger.error("Failed to launch Codex UI", t)
+            notify(project, "Failed to launch Codex UI: ${t.message}", NotificationType.ERROR)
         }
     }
 
@@ -87,7 +87,7 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
 
     private fun notify(project: Project, content: String, type: NotificationType) {
         runCatching {
-            val group = NotificationGroupManager.getInstance().getNotificationGroup("CodexLauncher")
+            val group = NotificationGroupManager.getInstance().getNotificationGroup("CodexUI")
             group.createNotification(NOTIFICATION_TITLE, content, type).notify(project)
         }.onFailure { error ->
             logger.error("Failed to show notification: $content", error)

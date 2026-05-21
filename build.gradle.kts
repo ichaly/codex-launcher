@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.8.0"
 }
 
-group = "com.github.x0x0b"
+group = "com.github.ichaly"
 version = "1.1.15"
 
 repositories {
@@ -37,7 +37,7 @@ intellijPlatform {
         }
 
         changeNotes = """
-            Support for GPT 5.1 Codex Max model.
+            Rename plugin identity to Codex UI and add context sharing actions.
         """.trimIndent()
     }
     publishing {

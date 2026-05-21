@@ -13,7 +13,7 @@ import com.intellij.openapi.components.StoragePathMacros
 import com.intellij.util.xmlb.XmlSerializerUtil
 
 /**
- * Project-level settings service for Codex Launcher plugin.
+ * Project-level settings service for Codex UI plugin.
  * 
  * This service manages the persistent configuration including:
  * - Launch mode (DEFAULT, FULL_AUTO)
@@ -27,7 +27,7 @@ import com.intellij.util.xmlb.XmlSerializerUtil
  */
 
 @Service(Service.Level.PROJECT)
-@State(name = "CodexLauncherSettings", storages = [Storage(StoragePathMacros.WORKSPACE_FILE)])
+@State(name = "CodexUISettings", storages = [Storage(StoragePathMacros.WORKSPACE_FILE)])
 class CodexLauncherSettings : PersistentStateComponent<CodexLauncherSettings.State> {
     /**
      * Data class representing the persistent state of the plugin settings.

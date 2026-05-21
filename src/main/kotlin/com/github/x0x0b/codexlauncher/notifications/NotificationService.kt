@@ -9,7 +9,8 @@ import com.intellij.openapi.project.Project
 class NotificationService(private val project: Project) {
     
     companion object {
-        private const val NOTIFICATION_GROUP_ID = "CodexLauncher"
+        private const val NOTIFICATION_GROUP_ID = "CodexUI"
+        private const val NOTIFICATION_TITLE = "Codex UI"
     }
     
     fun notifyRefreshReceived(message: String = "Codex CLI processing completed.") {
@@ -17,7 +18,7 @@ class NotificationService(private val project: Project) {
             .getNotificationGroup(NOTIFICATION_GROUP_ID)
             
         val notification = notificationGroup.createNotification(
-            "Codex Launcher",
+            NOTIFICATION_TITLE,
             message,
             NotificationType.INFORMATION
         )
@@ -30,7 +31,7 @@ class NotificationService(private val project: Project) {
             .getNotificationGroup(NOTIFICATION_GROUP_ID)
             
         val notification = notificationGroup.createNotification(
-            "Codex Launcher",
+            NOTIFICATION_TITLE,
             "Error processing refresh request: $error",
             NotificationType.ERROR
         )
