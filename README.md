@@ -1,6 +1,6 @@
 # Codex UI - IntelliJ Plugin
 
-[![Version](https://img.shields.io/badge/version-1.1.15-blue.svg)](https://github.com/ichaly/codex-ui/releases)
+[![Version](https://img.shields.io/badge/version-1.1.17-blue.svg)](https://github.com/ichaly/codex-ui/releases)
 [![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ%20IDEA-2024.2+-orange.svg)](https://www.jetbrains.com/idea/)
 
 <img width="800" alt="The screenshot of Codex UI." src="https://github.com/user-attachments/assets/4ee3fbd8-e384-4672-94c6-e4e9041a8e0d" />

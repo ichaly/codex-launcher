@@ -48,6 +48,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
     private lateinit var openFileOnChangeCheckbox: JBCheckBox
     private lateinit var enableNotificationCheckbox: JBCheckBox
     private lateinit var enableSearchCheckbox: JBCheckBox
+    private lateinit var enableFullAccessCheckbox: JBCheckBox
     private lateinit var cdWorkingDirectoryField: JBTextField
     private lateinit var enableCdProjectRootCheckbox: JBCheckBox
     private lateinit var cdProjectRootWarningLabel: JBLabel
@@ -85,6 +86,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         // Options controls
         modeFullAutoCheckbox = JBCheckBox("--full-auto (Low-friction sandboxed automatic execution)")
         enableSearchCheckbox = JBCheckBox("--enable web_search_request (Enable web search)")
+        enableFullAccessCheckbox = JBCheckBox("--dangerously-bypass-approvals-and-sandbox (Full access, no confirmations)")
         cdWorkingDirectoryField = JBTextField()
         cdWorkingDirectoryField.emptyText.text = resolveDefaultWorkingDirectory().ifBlank {
             "Defaults to current project directory"
@@ -212,6 +214,9 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                     cell(enableSearchCheckbox)
                 }
                 row {
+                    cell(enableFullAccessCheckbox)
+                }
+                row {
                     cell(cdProjectRootWarningLabel)
                 }
                 row {
@@ -295,6 +300,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                 getOpenFileOnChange() != s.openFileOnChange ||
                 getEnableNotification() != s.enableNotification ||
                 getEnableSearch() != s.enableSearch ||
+                getEnableFullAccess() != s.enableFullAccess ||
                 getCdWorkingDirectory() != s.cdWorkingDirectory ||
                 getEnableCdProjectRoot() != s.enableCdProjectRoot ||
                 (SystemInfo.isWindows && getWinShell() != s.winShell) ||
@@ -316,6 +322,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         s.openFileOnChange = getOpenFileOnChange()
         s.enableNotification = getEnableNotification()
         s.enableSearch = getEnableSearch()
+        s.enableFullAccess = getEnableFullAccess()
         s.cdWorkingDirectory = getCdWorkingDirectory()
         s.enableCdProjectRoot = getEnableCdProjectRoot()
         if (SystemInfo.isWindows) {
@@ -336,6 +343,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         openFileOnChangeCheckbox.isSelected = s.openFileOnChange
         enableNotificationCheckbox.isSelected = s.enableNotification
         enableSearchCheckbox.isSelected = s.enableSearch
+        enableFullAccessCheckbox.isSelected = s.enableFullAccess
         cdWorkingDirectoryField.text = s.cdWorkingDirectory
         if (cdWorkingDirectoryField.text.isNullOrBlank()) {
             val defaultPath = resolveDefaultWorkingDirectory()
@@ -380,6 +388,10 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
 
     private fun getEnableSearch(): Boolean {
         return enableSearchCheckbox.isSelected
+    }
+
+    private fun getEnableFullAccess(): Boolean {
+        return enableFullAccessCheckbox.isSelected
     }
 
     private fun getCdWorkingDirectory(): String {

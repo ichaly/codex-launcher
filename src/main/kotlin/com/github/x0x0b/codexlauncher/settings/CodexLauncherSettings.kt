@@ -38,6 +38,7 @@ class CodexLauncherSettings : PersistentStateComponent<CodexLauncherSettings.Sta
      * @property openFileOnChange Whether to automatically open files when they change
      * @property enableNotification Whether to enable notifications
      * @property enableSearch Whether to launch Codex CLI with --enable web_search_request flag
+     * @property enableFullAccess Whether to bypass approvals and sandboxing
      * @property enableCdProjectRoot Whether to pass the working directory via --cd
      * @property cdWorkingDirectory Custom working directory to pass with --cd (falls back to project base path when blank)
      * @property isPowerShell73OrOver Whether using PowerShell 7.3 or later (legacy; use winShell instead)
@@ -51,6 +52,7 @@ class CodexLauncherSettings : PersistentStateComponent<CodexLauncherSettings.Sta
         var openFileOnChange: Boolean = false,
         var enableNotification: Boolean = false,
         var enableSearch: Boolean = false,
+        var enableFullAccess: Boolean = false,
         var enableCdProjectRoot: Boolean = false,
         var cdWorkingDirectory: String = "",
         var mcpConfigInput: String = "",

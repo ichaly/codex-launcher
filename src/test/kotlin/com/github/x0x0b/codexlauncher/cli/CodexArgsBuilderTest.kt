@@ -245,4 +245,24 @@ class CodexArgsBuilderTest : LightPlatformTestCase() {
             result
         )
     }
+
+    fun testFullAccessAddsBypassApprovalsAndSandboxFlag() {
+        val osProvider = TestOsProvider(isWindows = false)
+        state.mode = Mode.DEFAULT
+        state.model = Model.DEFAULT
+        state.modelReasoningEffort = ModelReasoningEffort.DEFAULT
+        state.enableSearch = false
+        state.enableFullAccess = true
+        state.enableCdProjectRoot = false
+        state.enableNotification = false
+        state.openFileOnChange = false
+        state.mcpConfigInput = ""
+
+        val result = CodexArgsBuilder.build(state, osProvider = osProvider)
+
+        assertEquals(
+            listOf("""--dangerously-bypass-approvals-and-sandbox"""),
+            result
+        )
+    }
 }

@@ -11,6 +11,9 @@ enum class Model {
     /** Do not pass --model. */
     DEFAULT,
 
+    // 5.5 models
+    GPT_5_5,
+
     // New gpt-5.1 based models (optional additions)
     GPT_5_1,
     GPT_5_1_CODEX,
@@ -28,6 +31,9 @@ enum class Model {
     fun cliName(): String = when (this) {
         DEFAULT -> ""
 
+        // 5.5 models
+        GPT_5_5 -> "gpt-5.5"
+
         // New 5.1 models
         GPT_5_1 -> "gpt-5.1"
         GPT_5_1_CODEX -> "gpt-5.1-codex"
@@ -44,6 +50,9 @@ enum class Model {
 
     fun toDisplayName(): String = when (this) {
         DEFAULT -> "Default"
+
+        // 5.5 models
+        GPT_5_5 -> "gpt-5.5"
 
         // New 5.1 models
         GPT_5_1 -> "gpt-5.1"
