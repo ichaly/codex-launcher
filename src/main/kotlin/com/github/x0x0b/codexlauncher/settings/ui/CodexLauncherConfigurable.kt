@@ -45,11 +45,13 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
     private lateinit var modelCombo: JComboBox<Model>
     private lateinit var customModelField: JBTextField
     private lateinit var modelReasoningEffortCombo: JComboBox<ModelReasoningEffort>
+    private lateinit var customModelReasoningEffortField: JBTextField
     private lateinit var openFileOnChangeCheckbox: JBCheckBox
     private lateinit var enableNotificationCheckbox: JBCheckBox
     private lateinit var enableSearchCheckbox: JBCheckBox
     private lateinit var cdWorkingDirectoryField: JBTextField
     private lateinit var enableCdProjectRootCheckbox: JBCheckBox
+    private lateinit var customArgsField: JBTextField
     private lateinit var cdProjectRootWarningLabel: JBLabel
     private lateinit var winShellCombo: JComboBox<WinShell>
     private lateinit var mcpConfigInputArea: JBTextArea
@@ -61,6 +63,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
 
     companion object {
         private val ALLOWED_CUSTOM_MODEL_REGEX = Regex("^[A-Za-z0-9._-]*$")
+        private val ALLOWED_CUSTOM_MODEL_REASONING_EFFORT_REGEX = Regex("^[A-Za-z0-9._-]*$")
         private const val MCP_SERVER_CONFIGURABLE_ID = "com.intellij.mcpserver.settings"
         private const val NOTIFICATIONS_CONFIGURABLE_ID = "reference.settings.ide.settings.notifications"
         private const val TERMINAL_CONFIGURABLE_ID = "terminal"
@@ -81,10 +84,13 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
 
         // Model reasoning effort controls
         modelReasoningEffortCombo = ComboBox(ModelReasoningEffort.entries.toTypedArray(), 130)
+        customModelReasoningEffortField = JBTextField()
+        customModelReasoningEffortField.emptyText.text = "e.g. high"
+        customModelReasoningEffortField.isEnabled = false
 
         // Options controls
         modeFullAutoCheckbox = JBCheckBox("--full-auto (Low-friction sandboxed automatic execution)")
-        enableSearchCheckbox = JBCheckBox("--enable web_search_request (Enable web search)")
+        enableSearchCheckbox = JBCheckBox("--search (Enable web search)")
         cdWorkingDirectoryField = JBTextField()
         cdWorkingDirectoryField.emptyText.text = resolveDefaultWorkingDirectory().ifBlank {
             "Defaults to current project directory"
@@ -96,6 +102,10 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
             isVisible = false
         }
         enableCdProjectRootCheckbox.addActionListener { updateWslDependentAvailability() }
+        customArgsField = JBTextField().apply {
+            emptyText.text = "e.g. --foo bar --config '{\"a\":1}'"
+            columns = 50
+        }
 
         // File opening control
         openFileOnChangeCheckbox = JBCheckBox("Open files automatically when changed")
@@ -169,9 +179,34 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                 }
             }
         }
+        (customModelReasoningEffortField.document as? AbstractDocument)?.documentFilter = object : DocumentFilter() {
+
+            override fun insertString(fb: FilterBypass, offset: Int, string: String?, attr: AttributeSet?) {
+                if (string == null) return
+                val doc = fb.document
+                val current = doc.getText(0, doc.length)
+                val next = StringBuilder(current).insert(offset, string).toString()
+                if (ALLOWED_CUSTOM_MODEL_REASONING_EFFORT_REGEX.matches(next)) {
+                    super.insertString(fb, offset, string, attr)
+                }
+            }
+
+            override fun replace(fb: FilterBypass, offset: Int, length: Int, text: String?, attrs: AttributeSet?) {
+                val doc = fb.document
+                val current = doc.getText(0, doc.length)
+                val next = StringBuilder(current).replace(offset, offset + length, text ?: "").toString()
+                if (ALLOWED_CUSTOM_MODEL_REASONING_EFFORT_REGEX.matches(next)) {
+                    super.replace(fb, offset, length, text, attrs)
+                }
+            }
+        }
         modelCombo.addActionListener {
             val selected = (modelCombo.selectedItem as? Model) ?: Model.DEFAULT
             customModelField.isEnabled = (selected == Model.CUSTOM)
+        }
+        modelReasoningEffortCombo.addActionListener {
+            val selected = (modelReasoningEffortCombo.selectedItem as? ModelReasoningEffort) ?: ModelReasoningEffort.DEFAULT
+            customModelReasoningEffortField.isEnabled = (selected == ModelReasoningEffort.CUSTOM)
         }
 
         root = panel {
@@ -195,13 +230,18 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                 row("Custom model id") {
                     cell(customModelField)
                         .resizableColumn()
-                        .applyToComponent { columns = 50 }
+                        .applyToComponent { columns = 30 }
                 }
                 row {
                     this.largeComment("Some models may not support all reasoning effort levels.")
                 }
                 row("Model reasoning effort") {
                     cell(modelReasoningEffortCombo)
+                }
+                row("Custom reasoning effort") {
+                    cell(customModelReasoningEffortField)
+                        .resizableColumn()
+                        .applyToComponent { columns = 30 }
                 }
             }
             group("Options") {
@@ -224,6 +264,10 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                 }
                 row {
                     this.largeComment("For more information, run codex --help")
+                }
+                row("Custom args") {
+                    cell(customArgsField)
+                        .resizableColumn()
                 }
             }
             group("File Handling") {
@@ -292,11 +336,13 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                 getModel() != s.model ||
                 getCustomModel() != s.customModel ||
                 getModelReasoningEffort() != s.modelReasoningEffort ||
+                getCustomModelReasoningEffort() != s.customModelReasoningEffort ||
                 getOpenFileOnChange() != s.openFileOnChange ||
                 getEnableNotification() != s.enableNotification ||
                 getEnableSearch() != s.enableSearch ||
                 getCdWorkingDirectory() != s.cdWorkingDirectory ||
                 getEnableCdProjectRoot() != s.enableCdProjectRoot ||
+                getCustomArgs() != s.customArgs ||
                 (SystemInfo.isWindows && getWinShell() != s.winShell) ||
                 getMcpConfigInput() != s.mcpConfigInput
     }
@@ -305,19 +351,32 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         // Validate custom model id before saving
         val selected = getModel()
         val custom = getCustomModel()
-        if (selected == Model.CUSTOM && !ALLOWED_CUSTOM_MODEL_REGEX.matches(custom)) {
-            throw ConfigurationException("Invalid custom model id. Allowed: letters, digits, '.', '-', '_'")
-        }
+        validateRequiredCustomValue(
+            isCustomSelected = (selected == Model.CUSTOM),
+            customValue = custom,
+            allowedRegex = ALLOWED_CUSTOM_MODEL_REGEX,
+            errorMessage = "Custom model id required and must contain only letters, digits, '.', '-', '_'"
+        )
+        val selectedReasoningEffort = getModelReasoningEffort()
+        val customReasoningEffort = getCustomModelReasoningEffort()
+        validateRequiredCustomValue(
+            isCustomSelected = (selectedReasoningEffort == ModelReasoningEffort.CUSTOM),
+            customValue = customReasoningEffort,
+            allowedRegex = ALLOWED_CUSTOM_MODEL_REASONING_EFFORT_REGEX,
+            errorMessage = "Custom reasoning effort required and must contain only letters, digits, '.', '-', '_'"
+        )
         val s = settings.state
         s.mode = getMode()
         s.model = getModel()
         s.customModel = getCustomModel()
         s.modelReasoningEffort = getModelReasoningEffort()
+        s.customModelReasoningEffort = getCustomModelReasoningEffort()
         s.openFileOnChange = getOpenFileOnChange()
         s.enableNotification = getEnableNotification()
         s.enableSearch = getEnableSearch()
         s.cdWorkingDirectory = getCdWorkingDirectory()
         s.enableCdProjectRoot = getEnableCdProjectRoot()
+        s.customArgs = getCustomArgs()
         if (SystemInfo.isWindows) {
             s.winShell = getWinShell()
             // update legacy field
@@ -333,6 +392,8 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         customModelField.text = s.customModel
         customModelField.isEnabled = (s.model == Model.CUSTOM)
         modelReasoningEffortCombo.selectedItem = s.modelReasoningEffort
+        customModelReasoningEffortField.text = s.customModelReasoningEffort
+        customModelReasoningEffortField.isEnabled = (s.modelReasoningEffort == ModelReasoningEffort.CUSTOM)
         openFileOnChangeCheckbox.isSelected = s.openFileOnChange
         enableNotificationCheckbox.isSelected = s.enableNotification
         enableSearchCheckbox.isSelected = s.enableSearch
@@ -347,11 +408,26 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
             "Defaults to current project directory"
         }
         enableCdProjectRootCheckbox.isSelected = s.enableCdProjectRoot
+        customArgsField.text = s.customArgs
         if (SystemInfo.isWindows) {
             winShellCombo.selectedItem = s.winShell
         }
         mcpConfigInputArea.text = s.mcpConfigInput
         updateWslDependentAvailability()
+    }
+
+    private fun validateRequiredCustomValue(
+        isCustomSelected: Boolean,
+        customValue: String,
+        allowedRegex: Regex,
+        errorMessage: String
+    ) {
+        if (!isCustomSelected) {
+            return
+        }
+        if (customValue.isBlank() || !allowedRegex.matches(customValue)) {
+            throw ConfigurationException(errorMessage)
+        }
     }
 
     fun getMode(): Mode {
@@ -368,6 +444,10 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
 
     private fun getModelReasoningEffort(): ModelReasoningEffort {
         return (modelReasoningEffortCombo.selectedItem as? ModelReasoningEffort) ?: ModelReasoningEffort.DEFAULT
+    }
+
+    private fun getCustomModelReasoningEffort(): String {
+        return customModelReasoningEffortField.text?.trim() ?: ""
     }
 
     private fun getOpenFileOnChange(): Boolean {
@@ -388,6 +468,10 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
 
     private fun getEnableCdProjectRoot(): Boolean {
         return enableCdProjectRootCheckbox.isSelected
+    }
+
+    private fun getCustomArgs(): String {
+        return customArgsField.text?.trim() ?: ""
     }
 
     private fun getWinShell(): WinShell {

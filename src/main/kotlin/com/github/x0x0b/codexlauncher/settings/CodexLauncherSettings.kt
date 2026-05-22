@@ -35,11 +35,13 @@ class CodexLauncherSettings : PersistentStateComponent<CodexLauncherSettings.Sta
      * @property mode The launch mode for codex execution
      * @property model The selected model for codex
      * @property customModel Custom model identifier when model is set to CUSTOM
+     * @property customModelReasoningEffort Custom model reasoning effort when modelReasoningEffort is set to CUSTOM
      * @property openFileOnChange Whether to automatically open files when they change
      * @property enableNotification Whether to enable notifications
-     * @property enableSearch Whether to launch Codex CLI with --enable web_search_request flag
+     * @property enableSearch Whether to launch Codex CLI with --search flag
      * @property enableCdProjectRoot Whether to pass the working directory via --cd
      * @property cdWorkingDirectory Custom working directory to pass with --cd (falls back to project base path when blank)
+     * @property customArgs Additional CLI arguments appended as-is to the Codex command
      * @property isPowerShell73OrOver Whether using PowerShell 7.3 or later (legacy; use winShell instead)
      * @property winShell Preferred Windows shell selection (Windows only)
      */
@@ -48,11 +50,13 @@ class CodexLauncherSettings : PersistentStateComponent<CodexLauncherSettings.Sta
         var model: Model = Model.DEFAULT,
         var customModel: String = "",
         var modelReasoningEffort: ModelReasoningEffort = ModelReasoningEffort.DEFAULT,
+        var customModelReasoningEffort: String = "",
         var openFileOnChange: Boolean = false,
         var enableNotification: Boolean = false,
         var enableSearch: Boolean = false,
         var enableCdProjectRoot: Boolean = false,
         var cdWorkingDirectory: String = "",
+        var customArgs: String = "",
         var mcpConfigInput: String = "",
         var isPowerShell73OrOver: Boolean = false, // Legacy flag, use winShell instead
         var winShell: WinShell = WinShell.POWERSHELL_LT_73
