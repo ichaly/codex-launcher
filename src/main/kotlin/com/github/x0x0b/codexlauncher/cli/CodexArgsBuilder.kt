@@ -76,6 +76,10 @@ object CodexArgsBuilder {
             parts += "--search"
         }
 
+        if (state.enableFullAccess) {
+            parts += "--dangerously-bypass-approvals-and-sandbox"
+        }
+
         val workingDirectory = state.cdWorkingDirectory.trim().ifBlank { projectBasePath.orEmpty() }
 
         if (

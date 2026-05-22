@@ -7,6 +7,7 @@ import com.intellij.testFramework.LightProjectDescriptor
 import com.intellij.openapi.application.ApplicationManager
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -122,6 +123,52 @@ class InsertPayloadResolverTest {
             block()
         } else {
             ApplicationManager.getApplication().invokeAndWait(block)
+        }
+    }
+
+    @Test
+    fun testProjectFileSelectionProducesMultipleReferences() {
+        runInEdt {
+            val first = myFixture.tempDirFixture.createFile("src/Foo.kt", "class Foo")
+            val second = myFixture.tempDirFixture.createFile("src/Bar.kt", "class Bar")
+
+            val payload = InsertPayloadResolver.resolve(
+                project = myFixture.project,
+                files = arrayOf(first, second)
+            )
+
+            assertNotNull(payload, "Payload should be resolved for Project View files")
+            payload!!
+
+            assertEquals(2, payload.relativePaths.size)
+            assertTrue(payload.relativePaths[0].endsWith("src/Foo.kt"))
+            assertTrue(payload.relativePaths[1].endsWith("src/Bar.kt"))
+            assertNull(payload.lineRange, "Project View payloads should not include line ranges")
+            assertEquals(
+                "${payload.relativePaths[0]} ${payload.relativePaths[1]} ",
+                InsertPayloadResolver.formatInsertText(payload)
+            )
+        }
+    }
+
+    @Test
+    fun testProjectDirectorySelectionOmitsSelectedDescendants() {
+        runInEdt {
+            val dir = myFixture.tempDirFixture.findOrCreateDir("directory-selection")
+            val child = myFixture.tempDirFixture.createFile("directory-selection/Foo.kt", "class Foo")
+
+            val payload = InsertPayloadResolver.resolve(
+                project = myFixture.project,
+                file = dir,
+                files = arrayOf(child)
+            )
+
+            assertNotNull(payload, "Payload should be resolved for Project View directories")
+            payload!!
+
+            assertEquals(1, payload.relativePaths.size)
+            assertTrue(payload.relativePath.endsWith("directory-selection"))
+            assertFalse(payload.relativePath.contains("Foo.kt"), "Directory selection should not duplicate descendants")
         }
     }
 }

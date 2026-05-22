@@ -13,7 +13,7 @@ import com.intellij.openapi.components.StoragePathMacros
 import com.intellij.util.xmlb.XmlSerializerUtil
 
 /**
- * Project-level settings service for Codex Launcher plugin.
+ * Project-level settings service for Codex UI plugin.
  * 
  * This service manages the persistent configuration including:
  * - Launch mode (DEFAULT, FULL_AUTO)
@@ -27,7 +27,7 @@ import com.intellij.util.xmlb.XmlSerializerUtil
  */
 
 @Service(Service.Level.PROJECT)
-@State(name = "CodexLauncherSettings", storages = [Storage(StoragePathMacros.WORKSPACE_FILE)])
+@State(name = "CodexUISettings", storages = [Storage(StoragePathMacros.WORKSPACE_FILE)])
 class CodexLauncherSettings : PersistentStateComponent<CodexLauncherSettings.State> {
     /**
      * Data class representing the persistent state of the plugin settings.
@@ -39,6 +39,7 @@ class CodexLauncherSettings : PersistentStateComponent<CodexLauncherSettings.Sta
      * @property openFileOnChange Whether to automatically open files when they change
      * @property enableNotification Whether to enable notifications
      * @property enableSearch Whether to launch Codex CLI with --search flag
+     * @property enableFullAccess Whether to bypass approvals and sandboxing
      * @property enableCdProjectRoot Whether to pass the working directory via --cd
      * @property cdWorkingDirectory Custom working directory to pass with --cd (falls back to project base path when blank)
      * @property customArgs Additional CLI arguments appended as-is to the Codex command
@@ -54,6 +55,7 @@ class CodexLauncherSettings : PersistentStateComponent<CodexLauncherSettings.Sta
         var openFileOnChange: Boolean = false,
         var enableNotification: Boolean = false,
         var enableSearch: Boolean = false,
+        var enableFullAccess: Boolean = false,
         var enableCdProjectRoot: Boolean = false,
         var cdWorkingDirectory: String = "",
         var customArgs: String = "",

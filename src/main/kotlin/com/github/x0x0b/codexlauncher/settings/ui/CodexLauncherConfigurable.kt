@@ -49,6 +49,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
     private lateinit var openFileOnChangeCheckbox: JBCheckBox
     private lateinit var enableNotificationCheckbox: JBCheckBox
     private lateinit var enableSearchCheckbox: JBCheckBox
+    private lateinit var enableFullAccessCheckbox: JBCheckBox
     private lateinit var cdWorkingDirectoryField: JBTextField
     private lateinit var enableCdProjectRootCheckbox: JBCheckBox
     private lateinit var customArgsField: JBTextField
@@ -70,9 +71,9 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         private const val COMMENT_FONT_SIZE_DELTA = 0.8f
     }
 
-    override fun getId(): String = "com.github.x0x0b.codexlauncher.settings"
+    override fun getId(): String = "com.github.ichaly.codex-ui.settings"
 
-    override fun getDisplayName(): String = "Codex Launcher"
+    override fun getDisplayName(): String = "Codex UI"
 
     override fun createComponent(): JComponent {
 
@@ -91,6 +92,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         // Options controls
         modeFullAutoCheckbox = JBCheckBox("--full-auto (Low-friction sandboxed automatic execution)")
         enableSearchCheckbox = JBCheckBox("--search (Enable web search)")
+        enableFullAccessCheckbox = JBCheckBox("--dangerously-bypass-approvals-and-sandbox (Full access, no confirmations)")
         cdWorkingDirectoryField = JBTextField()
         cdWorkingDirectoryField.emptyText.text = resolveDefaultWorkingDirectory().ifBlank {
             "Defaults to current project directory"
@@ -252,6 +254,9 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                     cell(enableSearchCheckbox)
                 }
                 row {
+                    cell(enableFullAccessCheckbox)
+                }
+                row {
                     cell(cdProjectRootWarningLabel)
                 }
                 row {
@@ -278,7 +283,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                     cell(openFileOnChangeCheckbox)
                 }
                 row {
-                    this.largeComment("Changes will take effect after restarting Codex.")
+                    this.largeComment("Changes will take effect after restarting Codex UI.")
                 }
             }
             group("Notifications") {
@@ -290,12 +295,12 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                 }
                 row {
                     this.largeComment(
-                        "Customize notification sounds and display options in <a href='notifications'>Settings &gt; Appearance &amp; Behavior &gt; Notifications &gt; CodexLauncher</a>.",
+                        "Customize notification sounds and display options in <a href='notifications'>Settings &gt; Appearance &amp; Behavior &gt; Notifications &gt; CodexUI</a>.",
                         action = HyperlinkEventAction { openApplicationConfigurable(NOTIFICATIONS_CONFIGURABLE_ID) }
                     )
                 }
                 row {
-                    this.largeComment("Changes will take effect after restarting Codex.")
+                    this.largeComment("Changes will take effect after restarting Codex UI.")
                 }
                 row {
                     val link = HyperlinkLabel("Learn more about IntelliJ notification settings")
@@ -340,6 +345,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
                 getOpenFileOnChange() != s.openFileOnChange ||
                 getEnableNotification() != s.enableNotification ||
                 getEnableSearch() != s.enableSearch ||
+                getEnableFullAccess() != s.enableFullAccess ||
                 getCdWorkingDirectory() != s.cdWorkingDirectory ||
                 getEnableCdProjectRoot() != s.enableCdProjectRoot ||
                 getCustomArgs() != s.customArgs ||
@@ -374,6 +380,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         s.openFileOnChange = getOpenFileOnChange()
         s.enableNotification = getEnableNotification()
         s.enableSearch = getEnableSearch()
+        s.enableFullAccess = getEnableFullAccess()
         s.cdWorkingDirectory = getCdWorkingDirectory()
         s.enableCdProjectRoot = getEnableCdProjectRoot()
         s.customArgs = getCustomArgs()
@@ -397,6 +404,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         openFileOnChangeCheckbox.isSelected = s.openFileOnChange
         enableNotificationCheckbox.isSelected = s.enableNotification
         enableSearchCheckbox.isSelected = s.enableSearch
+        enableFullAccessCheckbox.isSelected = s.enableFullAccess
         cdWorkingDirectoryField.text = s.cdWorkingDirectory
         if (cdWorkingDirectoryField.text.isNullOrBlank()) {
             val defaultPath = resolveDefaultWorkingDirectory()
@@ -460,6 +468,10 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
 
     private fun getEnableSearch(): Boolean {
         return enableSearchCheckbox.isSelected
+    }
+
+    private fun getEnableFullAccess(): Boolean {
+        return enableFullAccessCheckbox.isSelected
     }
 
     private fun getCdWorkingDirectory(): String {

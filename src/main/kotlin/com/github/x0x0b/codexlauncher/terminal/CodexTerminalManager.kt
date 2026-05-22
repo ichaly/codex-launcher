@@ -12,16 +12,14 @@ import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 import org.jetbrains.plugins.terminal.TerminalToolWindowFactory
 
 /**
- * Project-level service responsible for managing Codex terminals.
- * Encapsulates lookup, reuse, focus, and command execution logic so actions stay thin.
+ * Project-level service responsible for managing Codex UI terminals.
+ * Encapsulates lookup, launch, focus, and text injection logic so actions stay thin.
  */
 @Service(Service.Level.PROJECT)
 class CodexTerminalManager(private val project: Project) {
 
     companion object {
-        private val CODEX_TERMINAL_KEY = Key.create<Boolean>("codex.launcher.codexTerminal")
-        private val CODEX_TERMINAL_RUNNING_KEY = Key.create<Boolean>("codex.launcher.codexTerminal.running")
-        private val CODEX_TERMINAL_CALLBACK_KEY = Key.create<Boolean>("codex.launcher.codexTerminal.callbackRegistered")
+        private val CODEX_TERMINAL_KEY = Key.create<Boolean>("codex.ui.codexTerminal")
     }
 
     private val logger = logger<CodexTerminalManager>()
@@ -30,36 +28,18 @@ class CodexTerminalManager(private val project: Project) {
     private data class CodexTerminal(val widget: TerminalWidget, val content: Content)
 
     /**
-     * Launches or reuses the Codex terminal for the given command.
+     * Launches a new Codex UI terminal for the given command.
      * @throws Throwable when terminal creation or command execution fails.
      */
     fun launch(baseDir: String, command: String) {
         val terminalManager = TerminalToolWindowManager.getInstance(project)
-        var existingTerminal = locateCodexTerminal(terminalManager)
-
-        existingTerminal?.let { terminal ->
-            ensureTerminationCallback(terminal.widget, terminal.content)
-            if (isCodexRunning(terminal)) {
-                logger.info("Focusing active Codex terminal")
-                focusCodexTerminal(terminalManager, terminal)
-                return
-            }
-
-            if (reuseCodexTerminal(terminal, command)) {
-                logger.info("Reused existing Codex terminal for new Codex run")
-                focusCodexTerminal(terminalManager, terminal)
-                return
-            } else {
-                clearCodexMetadata(terminalManager, terminal.widget)
-                existingTerminal = null
-            }
-        }
+        val terminalName = nextCodexTerminalName(terminalManager)
 
         var widget: TerminalWidget? = null
         try {
-            widget = terminalManager.createShellWidget(baseDir, "Codex", true, true)
-            val content = markCodexTerminal(terminalManager, widget)
-            if (!sendCommandToTerminal(widget, content, command)) {
+            widget = terminalManager.createShellWidget(baseDir, terminalName, true, true)
+            val content = markCodexTerminal(terminalManager, widget, terminalName)
+            if (!sendCommandToTerminal(widget, command)) {
                 throw IllegalStateException("Failed to execute Codex command")
             }
             if (content != null) {
@@ -71,60 +51,53 @@ class CodexTerminalManager(private val project: Project) {
         }
     }
 
-    /**
-     * Returns true when the Codex terminal tab is currently selected in the terminal tool window.
-     */
-    fun isCodexTerminalActive(): Boolean {
+    fun hasCodexTerminal(): Boolean {
         return try {
             val terminalManager = TerminalToolWindowManager.getInstance(project)
-            findDisplayedCodexTerminal(terminalManager) != null
+            locateCodexTerminals(terminalManager).isNotEmpty()
         } catch (t: Throwable) {
-            logger.warn("Failed to inspect Codex terminal active state", t)
+            logger.warn("Failed to inspect Codex UI terminal availability", t)
             false
         }
     }
 
-    fun typeIntoActiveCodexTerminal(text: String): Boolean {
+    fun typeIntoCodexTerminal(text: String): Boolean {
         return try {
             val terminalManager = TerminalToolWindowManager.getInstance(project)
-            val terminal = findDisplayedCodexTerminal(terminalManager) ?: return false
-            typeText(terminal.widget, text)
+            locateCodexTerminals(terminalManager).fold(false) { sentAny, terminal ->
+                typeText(terminal.widget, text).also { sent ->
+                    if (!sent) {
+                        logger.warn("Failed to type into Codex UI terminal tab: ${terminal.content.displayName}")
+                    }
+                } || sentAny
+            }
         } catch (t: Throwable) {
-            logger.warn("Failed to type into Codex terminal", t)
+            logger.warn("Failed to type into Codex UI terminal", t)
             false
         }
     }
 
-    private fun locateCodexTerminal(manager: TerminalToolWindowManager): CodexTerminal? = try {
+    private fun locateCodexTerminals(manager: TerminalToolWindowManager): List<CodexTerminal> = try {
         manager.terminalWidgets.asSequence().mapNotNull { widget ->
             val content = manager.getContainer(widget)?.content ?: return@mapNotNull null
-            val isCodex = content.getUserData(CODEX_TERMINAL_KEY) == true || content.displayName == "Codex"
+            val isCodex = isCodexTerminalContent(content)
             if (!isCodex) {
                 return@mapNotNull null
             }
             CodexTerminal(widget, content)
-        }.firstOrNull()
+        }.toList()
     } catch (t: Throwable) {
         logger.warn("Failed to inspect existing terminal widgets", t)
-        null
+        emptyList()
     }
 
-    private fun findDisplayedCodexTerminal(
-        manager: TerminalToolWindowManager
-    ): CodexTerminal? {
-        val terminal = locateCodexTerminal(manager) ?: return null
-        val toolWindow = resolveTerminalToolWindow(manager) ?: return null
-        val selectedContent = toolWindow.contentManager.selectedContent ?: return null
-        if (selectedContent != terminal.content) {
-            return null
-        }
-
-        val isDisplayed = toolWindow.isVisible
-        if (!isDisplayed) {
-            return null
-        }
-
-        return terminal
+    private fun isCodexTerminalContent(content: Content): Boolean {
+        val displayName = content.displayName.trim()
+        return content.getUserData(CODEX_TERMINAL_KEY) == true ||
+            displayName == "Codex UI" ||
+            displayName.startsWith("Codex UI ") ||
+            displayName.startsWith("Codex UI(") ||
+            displayName.startsWith("Codex UI:")
     }
 
     private fun focusCodexTerminal(
@@ -139,7 +112,7 @@ class CodexTerminalManager(private val project: Project) {
             try {
                 val toolWindow = resolveTerminalToolWindow(manager)
                 if (toolWindow == null) {
-                    logger.warn("Terminal tool window is not available for focusing Codex")
+                    logger.warn("Terminal tool window is not available for focusing Codex UI")
                     return@invokeLater
                 }
 
@@ -152,11 +125,11 @@ class CodexTerminalManager(private val project: Project) {
                     try {
                         terminal.widget.requestFocus()
                     } catch (focusError: Throwable) {
-                        logger.warn("Failed to request focus for Codex terminal", focusError)
+                        logger.warn("Failed to request focus for Codex UI terminal", focusError)
                     }
                 }, true)
             } catch (focusError: Throwable) {
-                logger.warn("Failed to focus existing Codex terminal", focusError)
+                logger.warn("Failed to focus existing Codex UI terminal", focusError)
             }
         }
     }
@@ -167,16 +140,19 @@ class CodexTerminalManager(private val project: Project) {
         ?: ToolWindowManager.getInstance(project)
             .getToolWindow(TerminalToolWindowFactory.TOOL_WINDOW_ID)
 
-    private fun markCodexTerminal(manager: TerminalToolWindowManager, widget: TerminalWidget): Content? {
+    private fun nextCodexTerminalName(manager: TerminalToolWindowManager): String {
+        val count = locateCodexTerminals(manager).size
+        return if (count == 0) "Codex UI" else "Codex UI (${count + 1})"
+    }
+
+    private fun markCodexTerminal(manager: TerminalToolWindowManager, widget: TerminalWidget, displayName: String): Content? {
         return try {
             manager.getContainer(widget)?.content?.also { content ->
                 content.putUserData(CODEX_TERMINAL_KEY, true)
-                setCodexRunning(content, false)
-                ensureTerminationCallback(widget, content)
-                content.displayName = "Codex"
+                content.displayName = displayName
             }
         } catch (t: Throwable) {
-            logger.warn("Failed to tag Codex terminal metadata", t)
+            logger.warn("Failed to tag Codex UI terminal metadata", t)
             null
         }
     }
@@ -184,75 +160,27 @@ class CodexTerminalManager(private val project: Project) {
     private fun clearCodexMetadata(manager: TerminalToolWindowManager, widget: TerminalWidget) {
         try {
             manager.getContainer(widget)?.content?.let { content ->
-                clearCodexMetadata(content)
+                content.putUserData(CODEX_TERMINAL_KEY, null)
             }
         } catch (t: Throwable) {
-            logger.warn("Failed to clear Codex terminal metadata", t)
+            logger.warn("Failed to clear Codex UI terminal metadata", t)
         }
-    }
-
-    private fun clearCodexMetadata(content: Content) {
-        content.putUserData(CODEX_TERMINAL_KEY, null)
-        content.putUserData(CODEX_TERMINAL_RUNNING_KEY, null)
-        content.putUserData(CODEX_TERMINAL_CALLBACK_KEY, null)
-    }
-
-    private fun reuseCodexTerminal(
-        terminal: CodexTerminal,
-        command: String
-    ): Boolean {
-        ensureTerminationCallback(terminal.widget, terminal.content)
-        return sendCommandToTerminal(terminal.widget, terminal.content, command)
     }
 
     private fun sendCommandToTerminal(
         widget: TerminalWidget,
-        content: Content?,
         command: String
     ): Boolean {
         val plan = scriptFactory.buildPlan(command) ?: return false
 
         return try {
             widget.sendCommandToExecute(plan.command)
-            setCodexRunning(content, true)
             true
         } catch (throwable: Throwable) {
             logger.warn("Failed to execute Codex command", throwable)
-            setCodexRunning(content, false)
             runCatching { plan.cleanupOnFailure() }
             false
         }
-    }
-
-    private fun isCodexRunning(terminal: CodexTerminal): Boolean {
-        val liveState = invokeIsCommandRunning(terminal.widget)
-        if (liveState != null) {
-            setCodexRunning(terminal.content, liveState)
-            return liveState
-        }
-        return terminal.content.getUserData(CODEX_TERMINAL_RUNNING_KEY) ?: false
-    }
-
-    private fun setCodexRunning(content: Content?, running: Boolean) {
-        content?.putUserData(CODEX_TERMINAL_RUNNING_KEY, running)
-    }
-
-    private fun ensureTerminationCallback(widget: TerminalWidget, content: Content?) {
-        if (content == null) return
-        if (content.getUserData(CODEX_TERMINAL_CALLBACK_KEY) == true) return
-        try {
-            widget.addTerminationCallback({ setCodexRunning(content, false) }, content)
-            content.putUserData(CODEX_TERMINAL_CALLBACK_KEY, true)
-        } catch (t: Throwable) {
-            logger.warn("Failed to register termination callback", t)
-        }
-    }
-
-    private fun invokeIsCommandRunning(widget: TerminalWidget): Boolean? {
-        return runCatching {
-            val method = widget.javaClass.methods.firstOrNull { it.name == "isCommandRunning" && it.parameterCount == 0 }
-            method?.apply { isAccessible = true }?.invoke(widget) as? Boolean
-        }.getOrNull()
     }
 
     private fun typeText(widget: TerminalWidget, text: String): Boolean {
@@ -262,7 +190,7 @@ class CodexTerminalManager(private val project: Project) {
                 connector.write(text)
                 true
             }.getOrElse {
-                logger.warn("Failed to write to Codex terminal connector", it)
+                logger.warn("Failed to write to Codex UI terminal connector", it)
                 false
             }
         }
@@ -275,7 +203,7 @@ class CodexTerminalManager(private val project: Project) {
                 typeMethod.invoke(widget, text)
                 true
             }.getOrElse {
-                logger.warn("Failed to invoke typeText on Codex terminal", it)
+                logger.warn("Failed to invoke typeText on Codex UI terminal", it)
                 false
             }
         }
@@ -287,7 +215,7 @@ class CodexTerminalManager(private val project: Project) {
                 pasteMethod.invoke(widget, text)
                 true
             }.getOrElse {
-                logger.warn("Failed to invoke pasteText on Codex terminal", it)
+                logger.warn("Failed to invoke pasteText on Codex UI terminal", it)
                 false
             }
         }

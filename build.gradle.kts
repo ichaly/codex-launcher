@@ -4,8 +4,8 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.12.0"
 }
 
-group = "com.github.x0x0b"
-version = "1.1.16"
+group = "com.github.ichaly"
+version = "1.1.17"
 
 repositories {
     mavenCentral()
@@ -18,12 +18,13 @@ repositories {
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
 dependencies {
     implementation("com.google.code.gson:gson:2.13.2")
+    testImplementation("junit:junit:4.13.2")
     testImplementation(platform("org.junit:junit-bom:5.14.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testRuntimeOnly("org.junit.vintage:junit-vintage-engine")
     intellijPlatform {
-        intellijIdeaUltimate("2025.3")
+        create("IC", "2025.2")
         bundledPlugin("org.jetbrains.plugins.terminal")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
@@ -36,7 +37,7 @@ intellijPlatform {
         }
 
         changeNotes = """
-            Add support for GPT-5.5 model.
+            Sync upstream 1.1.16 updates, rename plugin identity to Codex UI, and add context sharing actions.
         """.trimIndent()
     }
     publishing {
@@ -58,6 +59,10 @@ tasks {
 
     test {
         useJUnitPlatform()
+    }
+
+    buildSearchableOptions {
+        enabled = false
     }
 }
 
