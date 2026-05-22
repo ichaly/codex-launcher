@@ -2,11 +2,6 @@
   <configuration default="false" name="Run IDE with Plugin" type="GradleRunConfiguration" factoryName="Gradle">
     <log_file alias="idea.log" path="$PROJECT_DIR$/build/idea-sandbox/system/log/idea.log" />
     <ExternalSystemSettings>
-      <option name="env">
-        <map>
-          <entry key="PATH" value="$USER_HOME$/.local/share/mise/installs/node/24.11.0/bin:$USER_HOME$/.bun/bin:$USER_HOME$/.sdkman/candidates/java/current/bin:$USER_HOME$/Library/pnpm:$USER_HOME$/.local/bin:$USER_HOME$/.local/bin:$PROJECT_DIR$/../../Work/Android/platform-tools:$USER_HOME$/.rd/bin:$USER_HOME$/.codeium/windsurf/bin:$PROJECT_DIR$/../../Work/flutter/bin/cache/dart-sdk/bin:$PROJECT_DIR$/../../Work/flutter/bin:/opt/homebrew/opt/ruby@3.2/bin:/opt/homebrew/bin:$PROJECT_DIR$/../../Work/flutter/bin:/Applications/DevEco-Studio.app//Contents/sdk//default/openharmony//toolchains/:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/pkg/env/global/bin:/Library/Apple/usr/bin:/usr/local/go/bin:/opt/podman/bin:$USER_HOME$/.volta/bin:$PROJECT_DIR$/../../Work/Go/bin" />
-        </map>
-      </option>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
       <option name="externalSystemIdString" value="GRADLE" />
