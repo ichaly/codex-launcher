@@ -3,7 +3,6 @@ package com.github.x0x0b.codexlauncher.settings.ui
 import com.github.x0x0b.codexlauncher.settings.CodexLauncherSettings
 import com.github.x0x0b.codexlauncher.settings.options.Model
 import com.github.x0x0b.codexlauncher.settings.options.ModelReasoningEffort
-import com.github.x0x0b.codexlauncher.settings.options.Mode
 import com.github.x0x0b.codexlauncher.settings.options.WinShell
 import com.intellij.ide.DataManager
 import com.intellij.openapi.components.service
@@ -41,17 +40,14 @@ import java.util.function.Consumer
 
 class CodexLauncherConfigurable(private val project: Project) : SearchableConfigurable {
     private lateinit var root: JComponent
-    private lateinit var modeFullAutoCheckbox: JBCheckBox
     private lateinit var modelCombo: JComboBox<Model>
     private lateinit var customModelField: JBTextField
     private lateinit var modelReasoningEffortCombo: JComboBox<ModelReasoningEffort>
     private lateinit var customModelReasoningEffortField: JBTextField
     private lateinit var openFileOnChangeCheckbox: JBCheckBox
     private lateinit var enableNotificationCheckbox: JBCheckBox
-    private lateinit var enableSearchCheckbox: JBCheckBox
     private lateinit var enableFullAccessCheckbox: JBCheckBox
-    private lateinit var cdWorkingDirectoryField: JBTextField
-    private lateinit var enableCdProjectRootCheckbox: JBCheckBox
+    private lateinit var useSelectedModuleDirectoryCheckbox: JBCheckBox
     private lateinit var customArgsField: JBTextField
     private lateinit var cdProjectRootWarningLabel: JBLabel
     private lateinit var winShellCombo: JComboBox<WinShell>
@@ -80,7 +76,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         // Model controls
         modelCombo = ComboBox(Model.entries.toTypedArray(), 180)
         customModelField = JBTextField()
-        customModelField.emptyText.text = "e.g. gpt-5"
+        customModelField.emptyText.text = "e.g. gpt-5.6-sol"
         customModelField.isEnabled = false
 
         // Model reasoning effort controls
@@ -90,20 +86,15 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         customModelReasoningEffortField.isEnabled = false
 
         // Options controls
-        modeFullAutoCheckbox = JBCheckBox("--full-auto (Low-friction sandboxed automatic execution)")
-        enableSearchCheckbox = JBCheckBox("--search (Enable web search)")
         enableFullAccessCheckbox = JBCheckBox("--dangerously-bypass-approvals-and-sandbox (Full access, no confirmations)")
-        cdWorkingDirectoryField = JBTextField()
-        cdWorkingDirectoryField.emptyText.text = resolveDefaultWorkingDirectory().ifBlank {
-            "Defaults to current project directory"
-        }
-        enableCdProjectRootCheckbox = JBCheckBox("--cd <project root> (Turn this on only when you explicitly need to set the working directory.)")
-        cdProjectRootWarningLabel = JBLabel("--cd <project root> is unavailable when WSL shell is selected.").apply {
+        useSelectedModuleDirectoryCheckbox = JBCheckBox(
+            "Use the selected Project View module as the Codex working directory (--cd)"
+        )
+        cdProjectRootWarningLabel = JBLabel("Module working directory selection is unavailable when WSL shell is selected.").apply {
             foreground = UIUtil.getErrorForeground()
             border = JBUI.Borders.emptyTop(4)
             isVisible = false
         }
-        enableCdProjectRootCheckbox.addActionListener { updateWslDependentAvailability() }
         customArgsField = JBTextField().apply {
             emptyText.text = "e.g. --foo bar --config '{\"a\":1}'"
             columns = 50
@@ -248,24 +239,19 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
             }
             group("Options") {
                 row {
-                    cell(modeFullAutoCheckbox)
-                }
-                row {
-                    cell(enableSearchCheckbox)
-                }
-                row {
                     cell(enableFullAccessCheckbox)
                 }
                 row {
                     cell(cdProjectRootWarningLabel)
                 }
                 row {
-                    cell(enableCdProjectRootCheckbox)
+                    cell(useSelectedModuleDirectoryCheckbox)
                 }
-                row("Working directory (--cd)") {
-                    cell(cdWorkingDirectoryField)
-                        .resizableColumn()
-                        .applyToComponent { columns = 50 }
+                row {
+                    this.largeComment(
+                        "When enabled, launch from the selected module's content root. " +
+                                "If no module is selected, the project directory is used."
+                    )
                 }
                 row {
                     this.largeComment("For more information, run codex --help")
@@ -337,17 +323,14 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
 
     override fun isModified(): Boolean {
         val s = settings.state
-        return getMode() != s.mode ||
-                getModel() != s.model ||
+        return getModel() != s.model ||
                 getCustomModel() != s.customModel ||
                 getModelReasoningEffort() != s.modelReasoningEffort ||
                 getCustomModelReasoningEffort() != s.customModelReasoningEffort ||
                 getOpenFileOnChange() != s.openFileOnChange ||
                 getEnableNotification() != s.enableNotification ||
-                getEnableSearch() != s.enableSearch ||
                 getEnableFullAccess() != s.enableFullAccess ||
-                getCdWorkingDirectory() != s.cdWorkingDirectory ||
-                getEnableCdProjectRoot() != s.enableCdProjectRoot ||
+                getUseSelectedModuleDirectory() != s.useSelectedModuleDirectory ||
                 getCustomArgs() != s.customArgs ||
                 (SystemInfo.isWindows && getWinShell() != s.winShell) ||
                 getMcpConfigInput() != s.mcpConfigInput
@@ -372,17 +355,14 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
             errorMessage = "Custom reasoning effort required and must contain only letters, digits, '.', '-', '_'"
         )
         val s = settings.state
-        s.mode = getMode()
         s.model = getModel()
         s.customModel = getCustomModel()
         s.modelReasoningEffort = getModelReasoningEffort()
         s.customModelReasoningEffort = getCustomModelReasoningEffort()
         s.openFileOnChange = getOpenFileOnChange()
         s.enableNotification = getEnableNotification()
-        s.enableSearch = getEnableSearch()
         s.enableFullAccess = getEnableFullAccess()
-        s.cdWorkingDirectory = getCdWorkingDirectory()
-        s.enableCdProjectRoot = getEnableCdProjectRoot()
+        s.useSelectedModuleDirectory = getUseSelectedModuleDirectory()
         s.customArgs = getCustomArgs()
         if (SystemInfo.isWindows) {
             s.winShell = getWinShell()
@@ -394,7 +374,6 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
 
     override fun reset() {
         val s = settings.state
-        modeFullAutoCheckbox.isSelected = (s.mode == Mode.FULL_AUTO)
         modelCombo.selectedItem = s.model
         customModelField.text = s.customModel
         customModelField.isEnabled = (s.model == Model.CUSTOM)
@@ -403,19 +382,8 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         customModelReasoningEffortField.isEnabled = (s.modelReasoningEffort == ModelReasoningEffort.CUSTOM)
         openFileOnChangeCheckbox.isSelected = s.openFileOnChange
         enableNotificationCheckbox.isSelected = s.enableNotification
-        enableSearchCheckbox.isSelected = s.enableSearch
         enableFullAccessCheckbox.isSelected = s.enableFullAccess
-        cdWorkingDirectoryField.text = s.cdWorkingDirectory
-        if (cdWorkingDirectoryField.text.isNullOrBlank()) {
-            val defaultPath = resolveDefaultWorkingDirectory()
-            if (defaultPath.isNotBlank()) {
-                cdWorkingDirectoryField.text = defaultPath
-            }
-        }
-        cdWorkingDirectoryField.emptyText.text = resolveDefaultWorkingDirectory().ifBlank {
-            "Defaults to current project directory"
-        }
-        enableCdProjectRootCheckbox.isSelected = s.enableCdProjectRoot
+        useSelectedModuleDirectoryCheckbox.isSelected = s.useSelectedModuleDirectory
         customArgsField.text = s.customArgs
         if (SystemInfo.isWindows) {
             winShellCombo.selectedItem = s.winShell
@@ -436,10 +404,6 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         if (customValue.isBlank() || !allowedRegex.matches(customValue)) {
             throw ConfigurationException(errorMessage)
         }
-    }
-
-    fun getMode(): Mode {
-        return if (modeFullAutoCheckbox.isSelected) Mode.FULL_AUTO else Mode.DEFAULT
     }
 
     private fun getModel(): Model {
@@ -466,20 +430,12 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         return enableNotificationCheckbox.isSelected
     }
 
-    private fun getEnableSearch(): Boolean {
-        return enableSearchCheckbox.isSelected
-    }
-
     private fun getEnableFullAccess(): Boolean {
         return enableFullAccessCheckbox.isSelected
     }
 
-    private fun getCdWorkingDirectory(): String {
-        return cdWorkingDirectoryField.text?.trim() ?: ""
-    }
-
-    private fun getEnableCdProjectRoot(): Boolean {
-        return enableCdProjectRootCheckbox.isSelected
+    private fun getUseSelectedModuleDirectory(): Boolean {
+        return useSelectedModuleDirectoryCheckbox.isSelected
     }
 
     private fun getCustomArgs(): String {
@@ -494,17 +450,12 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         }
     }
 
-    private fun resolveDefaultWorkingDirectory(): String {
-        return project.basePath ?: ""
-    }
-
     private fun updateWslDependentAvailability() {
         if (!::mcpConfigInputArea.isInitialized ||
             !::mcpServerWarningLabel.isInitialized ||
             !::fileHandlingWarningLabel.isInitialized ||
             !::notificationsWarningLabel.isInitialized ||
-            !::enableCdProjectRootCheckbox.isInitialized ||
-            !::cdWorkingDirectoryField.isInitialized ||
+            !::useSelectedModuleDirectoryCheckbox.isInitialized ||
             !::cdProjectRootWarningLabel.isInitialized
         ) {
             return
@@ -512,8 +463,6 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         val isWslSelected = SystemInfo.isWindows &&
                 ::winShellCombo.isInitialized &&
                 (winShellCombo.selectedItem as? WinShell) == WinShell.WSL
-        val isCdEnabled = enableCdProjectRootCheckbox.isSelected && !isWslSelected
-
         mcpServerWarningLabel.isVisible = isWslSelected
         fileHandlingWarningLabel.isVisible = isWslSelected
         notificationsWarningLabel.isVisible = isWslSelected
@@ -522,8 +471,7 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
         mcpConfigInputArea.isEnabled = !isWslSelected
         openFileOnChangeCheckbox.isEnabled = !isWslSelected
         enableNotificationCheckbox.isEnabled = !isWslSelected
-        enableCdProjectRootCheckbox.isEnabled = !isWslSelected
-        cdWorkingDirectoryField.isEnabled = isCdEnabled
+        useSelectedModuleDirectoryCheckbox.isEnabled = !isWslSelected
 
         mcpConfigInputArea.toolTipText = if (isWslSelected) {
             "Integrated MCP Server is unavailable when WSL shell is selected."
@@ -543,16 +491,10 @@ class CodexLauncherConfigurable(private val project: Project) : SearchableConfig
             null
         }
 
-        enableCdProjectRootCheckbox.toolTipText = if (isWslSelected) {
-            "--cd <project root> is unavailable when WSL shell is selected."
+        useSelectedModuleDirectoryCheckbox.toolTipText = if (isWslSelected) {
+            "Module working directory selection is unavailable when WSL shell is selected."
         } else {
             null
-        }
-
-        cdWorkingDirectoryField.toolTipText = when {
-            isCdEnabled -> "Defaults to current project directory when left blank."
-            isWslSelected -> "--cd <project root> is unavailable when WSL shell is selected."
-            else -> "Enable --cd to set a custom working directory."
         }
     }
 

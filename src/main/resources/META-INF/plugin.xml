@@ -78,6 +78,8 @@
       <add-to-group group-id="NavBarToolBar" anchor="last"/>
       <!-- Also put it in the Tools menu for discoverability -->
       <add-to-group group-id="ToolsMenu" anchor="last"/>
+      <!-- Project View context makes the selected module available to the launch action -->
+      <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
     </action>
     <action id="com.github.ichaly.codexui.sendRange"
       class="com.github.x0x0b.codexlauncher.actions.SendRangeToCodexAction"

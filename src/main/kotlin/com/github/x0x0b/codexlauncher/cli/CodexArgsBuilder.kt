@@ -3,7 +3,6 @@ package com.github.x0x0b.codexlauncher.cli
 import com.github.x0x0b.codexlauncher.settings.CodexLauncherSettings
 import com.github.x0x0b.codexlauncher.settings.options.Model
 import com.github.x0x0b.codexlauncher.settings.options.ModelReasoningEffort
-import com.github.x0x0b.codexlauncher.settings.options.Mode
 import com.github.x0x0b.codexlauncher.settings.options.WinShell
 import com.google.gson.JsonArray
 import com.google.gson.JsonParser
@@ -32,8 +31,6 @@ object DefaultOsProvider : OsProvider {
  * 
  * This builder translates the plugin's settings into appropriate command-line arguments
  * that can be passed to the codex CLI tool. It handles:
- * - Mode selection (--full-auto flag)
- * - Optional web search enablement (--search)
  * - Optional working directory selection (--cd)
  * - Model specification (--model parameter)
  * - Custom model handling with proper validation
@@ -47,47 +44,33 @@ object CodexArgsBuilder {
      * Builds the command-line argument list for codex based on the provided settings state.
      * 
      * The method processes the settings and generates appropriate arguments:
-     * - Adds --full-auto flag if the mode is set to FULL_AUTO
      * - Adds --model parameter with the selected model name if not DEFAULT
      * - Handles custom models with proper validation
      * 
      * @param state The current settings state containing user preferences
      * @param port Optional HTTP service port for notify command
-     * @param projectBasePath Optional project base path for --cd handling
+     * @param workingDirectory Optional selected module or project path for --cd handling
      * @return A list of command-line arguments to pass to codex
      * 
-     * @example
-     * For settings with mode=FULL_AUTO and model=GPT_5:
-     * Returns: ["--full-auto", "--model", "gpt-5"]
      */
     fun build(
         state: CodexLauncherSettings.State,
         port: Int? = null,
         osProvider: OsProvider = DefaultOsProvider,
-        projectBasePath: String? = null
+        workingDirectory: String? = null
     ): List<String> {
         val parts = mutableListOf<String>()
-
-        if (state.mode == Mode.FULL_AUTO) {
-            parts += "--full-auto"
-        }
-
-        if (state.enableSearch) {
-            parts += "--search"
-        }
 
         if (state.enableFullAccess) {
             parts += "--dangerously-bypass-approvals-and-sandbox"
         }
 
-        val workingDirectory = state.cdWorkingDirectory.trim().ifBlank { projectBasePath.orEmpty() }
-
         if (
-            state.enableCdProjectRoot &&
-            workingDirectory.isNotBlank() &&
+            state.useSelectedModuleDirectory &&
+            !workingDirectory.isNullOrBlank() &&
             !(osProvider.isWindows && state.winShell == WinShell.WSL)
         ) {
-            parts += listOf("--cd", "'${workingDirectory}'")
+            parts += listOf("--cd", "'${workingDirectory.trim()}'")
         }
 
         // Determine the model name to use

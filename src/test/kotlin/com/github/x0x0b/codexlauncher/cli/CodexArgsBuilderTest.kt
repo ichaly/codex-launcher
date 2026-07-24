@@ -2,7 +2,6 @@ package com.github.x0x0b.codexlauncher.cli
 
 import com.github.x0x0b.codexlauncher.settings.CodexLauncherSettings
 import com.github.x0x0b.codexlauncher.settings.options.Model
-import com.github.x0x0b.codexlauncher.settings.options.Mode
 import com.github.x0x0b.codexlauncher.settings.options.ModelReasoningEffort
 import com.github.x0x0b.codexlauncher.settings.options.WinShell
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -53,7 +52,6 @@ class CodexArgsBuilderTest {
     @BeforeEach
     fun setUp() {
         state = CodexLauncherSettings.State()
-        state.mode = Mode.FULL_AUTO
         state.model = Model.CUSTOM
         state.customModel = "gpt-4o"
         state.modelReasoningEffort = ModelReasoningEffort.HIGH
@@ -67,21 +65,18 @@ class CodexArgsBuilderTest {
         val osProvider = TestOsProvider(isWindows = false)
         state.mcpConfigInput = mcpNonWindows
         state.enableNotification = true
-        state.enableSearch = true
-        state.enableCdProjectRoot = true
+        state.useSelectedModuleDirectory = true
 
         val result = CodexArgsBuilder.build(
             state,
             11111,
             osProvider = osProvider,
-            projectBasePath = "/home/user/project"
+            workingDirectory = "/home/user/project"
         )
 
         // Verify that complex arguments are properly formatted for non-Windows
         assertEquals(
             listOf(
-                """--full-auto""",
-                """--search""",
                 """--cd""",
                 """'/home/user/project'""",
                 """--model""",
@@ -108,21 +103,18 @@ class CodexArgsBuilderTest {
         state.winShell = WinShell.POWERSHELL_LT_73
         state.mcpConfigInput = mcpWindows
         state.openFileOnChange = true
-        state.enableSearch = true
-        state.enableCdProjectRoot = true
+        state.useSelectedModuleDirectory = true
 
         val result = CodexArgsBuilder.build(
             state,
             22222,
             osProvider = osProvider,
-            projectBasePath = "C:\\Projects\\Demo"
+            workingDirectory = "C:\\Projects\\Demo"
         )
 
         // Verify that complex arguments are properly formatted for Windows
         assertEquals(
             listOf(
-                """--full-auto""",
-                """--search""",
                 """--cd""",
                 """'C:\Projects\Demo'""",
                 """--model""",
@@ -150,21 +142,18 @@ class CodexArgsBuilderTest {
         state.mcpConfigInput = mcpWindows
         state.enableNotification = true
         state.openFileOnChange = true
-        state.enableSearch = true
-        state.enableCdProjectRoot = true
+        state.useSelectedModuleDirectory = true
 
         val result = CodexArgsBuilder.build(
             state,
             33333,
             osProvider = osProvider,
-            projectBasePath = "C:\\Projects\\Demo"
+            workingDirectory = "C:\\Projects\\Demo"
         )
 
         // Verify that complex arguments are properly formatted for Windows with PowerShell 7.3+
         assertEquals(
             listOf(
-                """--full-auto""",
-                """--search""",
                 """--cd""",
                 """'C:\Projects\Demo'""",
                 """--model""",
@@ -187,7 +176,6 @@ class CodexArgsBuilderTest {
     @Test
     fun testCustomArgsAreAppendedAsIs() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.FULL_AUTO
         state.model = Model.CUSTOM
         state.customModel = "gpt-4o"
         state.customArgs = """--foo bar --json '{"x":1}'"""
@@ -196,7 +184,6 @@ class CodexArgsBuilderTest {
 
         assertEquals(
             listOf(
-                """--full-auto""",
                 """--model""",
                 """'gpt-4o'""",
                 """-c""",
@@ -210,12 +197,9 @@ class CodexArgsBuilderTest {
     @Test
     fun testCustomModelTrimsWhitespaceBeforeModelArgument() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.CUSTOM
-        state.customModel = "  gpt-5.4-pro  "
+        state.customModel = "  gpt-5.6-sol  "
         state.modelReasoningEffort = ModelReasoningEffort.DEFAULT
-        state.enableSearch = false
-        state.enableCdProjectRoot = false
         state.enableNotification = false
         state.openFileOnChange = false
         state.mcpConfigInput = ""
@@ -226,7 +210,7 @@ class CodexArgsBuilderTest {
         assertEquals(
             listOf(
                 """--model""",
-                """'gpt-5.4-pro'"""
+                """'gpt-5.6-sol'"""
             ),
             result
         )
@@ -235,12 +219,9 @@ class CodexArgsBuilderTest {
     @Test
     fun testCustomModelIsSkippedWhenContainsUnsafeCharacters() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.CUSTOM
         state.customModel = "unsafe'\n`model`"
         state.modelReasoningEffort = ModelReasoningEffort.DEFAULT
-        state.enableSearch = false
-        state.enableCdProjectRoot = false
         state.enableNotification = false
         state.openFileOnChange = false
         state.mcpConfigInput = ""
@@ -255,7 +236,6 @@ class CodexArgsBuilderTest {
     fun testMinimalArgs() {
         // Test minimal args on non-Windows
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.DEFAULT
         state.modelReasoningEffort = ModelReasoningEffort.DEFAULT
         state.isPowerShell73OrOver = false
@@ -270,6 +250,34 @@ class CodexArgsBuilderTest {
     }
 
     @Test
+    fun testSelectedModuleDirectoryAddsCdArgument() {
+        val settingsState = CodexLauncherSettings.State().apply {
+            useSelectedModuleDirectory = true
+        }
+
+        val result = CodexArgsBuilder.build(
+            settingsState,
+            osProvider = TestOsProvider(isWindows = false),
+            workingDirectory = "/workspace/frontend"
+        )
+
+        assertEquals(listOf("--cd", "'/workspace/frontend'"), result)
+    }
+
+    @Test
+    fun testSelectedModuleDirectoryIsIgnoredWhenDisabled() {
+        val settingsState = CodexLauncherSettings.State()
+
+        val result = CodexArgsBuilder.build(
+            settingsState,
+            osProvider = TestOsProvider(isWindows = false),
+            workingDirectory = "/workspace/frontend"
+        )
+
+        assertEquals(emptyList<String>(), result)
+    }
+
+    @Test
     fun testComplexArgsFormattingOnWindowsWithWSL() {
         // Test Windows host but WSL selected; should format like non-Windows
         val osProvider = TestOsProvider(isWindows = true)
@@ -277,14 +285,18 @@ class CodexArgsBuilderTest {
         state.mcpConfigInput = mcpWindows
         state.openFileOnChange = true
         state.enableNotification = true
-        state.enableCdProjectRoot = true
+        state.useSelectedModuleDirectory = true
 
-        val result = CodexArgsBuilder.build(state, 44444, osProvider = osProvider)
+        val result = CodexArgsBuilder.build(
+            state,
+            44444,
+            osProvider = osProvider,
+            workingDirectory = "C:\\Projects\\Demo"
+        )
 
         // Verify non-Windows style quoting and no SystemRoot
         assertEquals(
             listOf(
-                """--full-auto""",
                 """--model""",
                 """'gpt-4o'""",
                 """-c""",
@@ -297,11 +309,8 @@ class CodexArgsBuilderTest {
     @Test
     fun testExtraHighReasoningEffortProducesXHighConfig() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.DEFAULT
         state.customModel = ""
-        state.enableSearch = false
-        state.enableCdProjectRoot = false
         state.enableNotification = false
         state.openFileOnChange = false
         state.mcpConfigInput = ""
@@ -321,11 +330,8 @@ class CodexArgsBuilderTest {
     @Test
     fun testCustomReasoningEffortUsesCustomConfigValue() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.DEFAULT
         state.customModel = ""
-        state.enableSearch = false
-        state.enableCdProjectRoot = false
         state.enableNotification = false
         state.openFileOnChange = false
         state.mcpConfigInput = ""
@@ -346,11 +352,8 @@ class CodexArgsBuilderTest {
     @Test
     fun testCustomReasoningEffortTrimsWhitespaceBeforeConfigValue() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.DEFAULT
         state.customModel = ""
-        state.enableSearch = false
-        state.enableCdProjectRoot = false
         state.enableNotification = false
         state.openFileOnChange = false
         state.mcpConfigInput = ""
@@ -371,11 +374,8 @@ class CodexArgsBuilderTest {
     @Test
     fun testCustomReasoningEffortIsSkippedWhenContainsUnsafeCharacters() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.DEFAULT
         state.customModel = ""
-        state.enableSearch = false
-        state.enableCdProjectRoot = false
         state.enableNotification = false
         state.openFileOnChange = false
         state.mcpConfigInput = ""
@@ -390,11 +390,8 @@ class CodexArgsBuilderTest {
     @Test
     fun testCustomReasoningEffortIsSkippedWhenBlank() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.DEFAULT
         state.customModel = ""
-        state.enableSearch = false
-        state.enableCdProjectRoot = false
         state.enableNotification = false
         state.openFileOnChange = false
         state.mcpConfigInput = ""
@@ -409,12 +406,9 @@ class CodexArgsBuilderTest {
     @Test
     fun testFullAccessAddsBypassApprovalsAndSandboxFlag() {
         val osProvider = TestOsProvider(isWindows = false)
-        state.mode = Mode.DEFAULT
         state.model = Model.DEFAULT
         state.modelReasoningEffort = ModelReasoningEffort.DEFAULT
-        state.enableSearch = false
         state.enableFullAccess = true
-        state.enableCdProjectRoot = false
         state.enableNotification = false
         state.openFileOnChange = false
         state.mcpConfigInput = ""

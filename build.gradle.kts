@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.github.ichaly"
-version = "1.1.17"
+version = "1.1.18"
 
 repositories {
     mavenCentral()
@@ -37,7 +37,7 @@ intellijPlatform {
         }
 
         changeNotes = """
-            Sync upstream 1.1.16 updates, rename plugin identity to Codex UI, and add context sharing actions.
+            Add the GPT-5.6 model family, remove obsolete model choices and CLI options, and allow launches to use the module selected in Project View as the working directory.
         """.trimIndent()
     }
     publishing {

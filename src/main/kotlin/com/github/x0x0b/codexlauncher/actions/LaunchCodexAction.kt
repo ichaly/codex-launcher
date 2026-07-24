@@ -8,12 +8,17 @@ import com.intellij.notification.NotificationType
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.LangDataKeys
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.logger
+import com.intellij.openapi.module.ModuleUtilCore
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.roots.ModuleRootManager
 import com.intellij.openapi.util.IconLoader
+import com.intellij.openapi.vfs.VfsUtilCore
 import javax.swing.Icon
 
 class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), DumbAware {
@@ -39,7 +44,7 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
         }
 
         val terminalManager = project.service<CodexTerminalManager>()
-        launchCodex(project, terminalManager)
+        launchCodex(project, terminalManager, e)
     }
 
     override fun update(e: AnActionEvent) {
@@ -52,9 +57,8 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
-    private fun launchCodex(project: Project, terminalManager: CodexTerminalManager) {
+    private fun launchCodex(project: Project, terminalManager: CodexTerminalManager, event: AnActionEvent) {
         val baseDir = project.basePath ?: System.getProperty("user.home")
-        logger.info("Launching Codex UI in directory: $baseDir")
 
         try {
             val httpService = ApplicationManager.getApplication().service<HttpTriggerService>()
@@ -66,13 +70,35 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
             }
 
             val settings = project.service<CodexLauncherSettings>()
-            val command = buildCommand(settings.getArgs(port, baseDir))
+            val workingDirectory = if (settings.state.useSelectedModuleDirectory) {
+                resolveModuleDirectory(project, event, baseDir)
+            } else {
+                baseDir
+            }
+            val command = buildCommand(settings.getArgs(port, workingDirectory))
             terminalManager.launch(baseDir, command)
-            logger.info("Codex UI command executed successfully: $command")
+            logger.info("Codex UI launched with working directory: $workingDirectory")
         } catch (t: Throwable) {
             logger.error("Failed to launch Codex UI", t)
             notify(project, "Failed to launch Codex UI: ${t.message}", NotificationType.ERROR)
         }
+    }
+
+    private fun resolveModuleDirectory(
+        project: Project,
+        event: AnActionEvent,
+        projectDirectory: String
+    ): String {
+        val selectedFile = event.getData(CommonDataKeys.VIRTUAL_FILE)
+        val module = event.getData(LangDataKeys.MODULE)
+            ?: selectedFile?.let { ModuleUtilCore.findModuleForFile(it, project) }
+            ?: return projectDirectory
+        val contentRoots = ModuleRootManager.getInstance(module).contentRoots
+        return contentRoots
+            .firstOrNull { root -> selectedFile != null && VfsUtilCore.isAncestor(root, selectedFile, false) }
+            ?.path
+            ?: contentRoots.firstOrNull()?.path
+            ?: projectDirectory
     }
 
     private fun buildCommand(args: String): String {
