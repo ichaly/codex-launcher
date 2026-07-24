@@ -25,11 +25,11 @@
         <h2>Features</h2>
         <ul>
           <li><b>One-click launch</b> from the toolbar or Tools menu</li>
-          <li><b>Integrated terminal</b> that opens a dedicated "Codex UI" tab in the project root</li>
+          <li><b>Integrated terminal</b> that opens a dedicated "Codex UI" tab in the project or selected module</li>
           <li><b>Completion notifications</b> after Codex CLI finishes processing the current run</li>
           <li><b>Automatic file opening</b> for files updated by Codex</li>
           <li><b>Built-in MCP server pairing</b> with guided setup for IntelliJ's MCP server (2025.2+)</li>
-          <li><b>Flexible configuration</b> for launch modes, models, and notifications</li>
+          <li><b>Flexible configuration</b> for models, working directories, and notifications</li>
         </ul>
 
         <h2>Usage</h2>
@@ -40,7 +40,7 @@
         </ol>
 
         <h2>Configuration</h2>
-        <p>Open <em>Settings (→ Other Settings) → Codex UI</em> to pick the launch mode, model, notification behavior, and auto-open options.</p>
+        <p>Open <em>Settings (→ Other Settings) → Codex UI</em> to pick the model, module working directory behavior, notifications, and auto-open options.</p>
 
         <h2>Requirements</h2>
         <ul>

@@ -256,8 +256,8 @@ object CodexArgsBuilder {
      * Gets the current IDE name from ApplicationInfo for use in MCP configuration.
      */
     private fun getCurrentIdeName(): String {
-        val appInfo = ApplicationInfo.getInstance()
-        val productName = appInfo.versionName
+        val productName = runCatching { ApplicationInfo.getInstance().versionName }
+            .getOrDefault("IntelliJ IDEA")
         
         return when {
             productName.contains("IntelliJ IDEA") -> "intellij"

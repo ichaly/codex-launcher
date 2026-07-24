@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # ratchet:actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # ratchet:actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # ratchet:gradle/actions/setup-gradle@v4
+
+      - name: Validate tag and project version
+        shell: bash
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          project_version="$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts)"
+          if [[ -z "$project_version" || "$tag_version" != "$project_version" ]]; then
+            echo "Tag version '$tag_version' does not match project version '$project_version'." >&2
+            exit 1
+          fi
+
+      - name: Verify signing secrets
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          for name in CERTIFICATE_CHAIN PRIVATE_KEY PRIVATE_KEY_PASSWORD; do
+            if [[ -z "${!name}" ]]; then
+              echo "Missing required GitHub Actions secret: $name" >&2
+              exit 1
+            fi
+          done
+
+      - name: Test and sign plugin
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+        run: ./gradlew test signPlugin
+
+      - name: Publish approved Marketplace plugin
+        if: ${{ vars.JETBRAINS_MARKETPLACE_ENABLED == 'true' }}
+        env:
+          CERTIFICATE_CHAIN: ${{ secrets.CERTIFICATE_CHAIN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+          PRIVATE_KEY_PASSWORD: ${{ secrets.PRIVATE_KEY_PASSWORD }}
+          PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -z "$PUBLISH_TOKEN" ]]; then
+            echo "Missing required GitHub Actions secret: PUBLISH_TOKEN" >&2
+            exit 1
+          fi
+          ./gradlew publishPlugin
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          artifacts=(build/distributions/*-signed.zip)
+          if [[ ${#artifacts[@]} -ne 1 ]]; then
+            echo "Expected exactly one signed plugin archive, found ${#artifacts[@]}." >&2
+            exit 1
+          fi
+
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "${artifacts[0]}" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "${artifacts[0]}" \
+              --generate-notes \
+              --title "Codex UI $GITHUB_REF_NAME"
+          fi
