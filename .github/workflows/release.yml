@@ -11,10 +11,13 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: marketplace-release
 
     steps:
       - name: Checkout code
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # ratchet:actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # ratchet:actions/setup-java@v4
@@ -32,6 +35,10 @@ jobs:
           project_version="$(sed -n 's/^version = "\(.*\)"/\1/p' build.gradle.kts)"
           if [[ -z "$project_version" || "$tag_version" != "$project_version" ]]; then
             echo "Tag version '$tag_version' does not match project version '$project_version'." >&2
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/main"; then
+            echo "Release tag must point to a commit already merged into main." >&2
             exit 1
           fi
 

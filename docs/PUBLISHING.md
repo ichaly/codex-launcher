@@ -24,7 +24,11 @@ After the first version is approved, tagged releases can publish automatically.
      -out chain.crt
    ```
 
-4. Add these GitHub Actions repository secrets:
+4. Create a protected GitHub Environment named `marketplace-release`.
+   Require the repository owner as a reviewer and restrict deployment to tags
+   matching `v*`.
+
+5. Add these GitHub Actions environment secrets:
 
    - `CERTIFICATE_CHAIN`: contents of `chain.crt`
    - `PRIVATE_KEY`: contents of `private_encrypted.pem`
@@ -32,6 +36,10 @@ After the first version is approved, tagged releases can publish automatically.
    - `PUBLISH_TOKEN`: the JetBrains Marketplace token
 
    Never commit the certificate, private key, password, or token.
+
+Release tags must point to commits already merged into `main`. The workflow
+also waits for approval from the protected environment before it can read the
+signing credentials or publish anything.
 
 ## First publication
 
