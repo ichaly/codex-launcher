@@ -64,13 +64,21 @@ class CodexTerminalManager(private val project: Project) {
     fun typeIntoCodexTerminal(text: String): Boolean {
         return try {
             val terminalManager = TerminalToolWindowManager.getInstance(project)
-            locateCodexTerminals(terminalManager).fold(false) { sentAny, terminal ->
-                typeText(terminal.widget, text).also { sent ->
-                    if (!sent) {
-                        logger.warn("Failed to type into Codex UI terminal tab: ${terminal.content.displayName}")
-                    }
-                } || sentAny
+            val terminals = locateCodexTerminals(terminalManager)
+            val selectedContent = resolveTerminalToolWindow(terminalManager)
+                ?.contentManager
+                ?.selectedContent
+            val target = terminals.firstOrNull { it.content === selectedContent }
+                ?: terminals.firstOrNull()
+                ?: return false
+
+            val sent = typeText(target.widget, text)
+            if (sent) {
+                focusCodexTerminal(terminalManager, target)
+            } else {
+                logger.warn("Failed to type into Codex UI terminal tab: ${target.content.displayName}")
             }
+            sent
         } catch (t: Throwable) {
             logger.warn("Failed to type into Codex UI terminal", t)
             false

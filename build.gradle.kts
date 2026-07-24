@@ -38,6 +38,7 @@ intellijPlatform {
 
         changeNotes = """
             Add the GPT-5.6 model family, remove obsolete model choices and CLI options, and allow launches to use the module selected in Project View as the working directory.
+            Add Ctrl+Alt+K for sending editor context to Codex, target only the selected Codex terminal, and keep launch available when the optional HTTP callback service is unavailable.
         """.trimIndent()
     }
     publishing {

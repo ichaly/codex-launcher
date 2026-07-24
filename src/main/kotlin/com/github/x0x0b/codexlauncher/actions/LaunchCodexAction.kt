@@ -62,14 +62,17 @@ class LaunchCodexAction : AnAction(DEFAULT_TEXT, DEFAULT_DESCRIPTION, null), Dum
 
         try {
             val httpService = ApplicationManager.getApplication().service<HttpTriggerService>()
-            val port = httpService.getActualPort()
-            if (port == 0) {
+            val port = httpService.getActualPort().takeIf { it > 0 }
+            val settings = project.service<CodexLauncherSettings>()
+            if (port == null && (settings.state.enableNotification || settings.state.openFileOnChange)) {
                 logger.warn("HTTP service port is not available")
-                notify(project, "HTTP service is not properly initialized", NotificationType.WARNING)
-                return
+                notify(
+                    project,
+                    "Codex UI will launch, but notifications and automatic file opening are unavailable",
+                    NotificationType.WARNING
+                )
             }
 
-            val settings = project.service<CodexLauncherSettings>()
             val workingDirectory = if (settings.state.useSelectedModuleDirectory) {
                 resolveModuleDirectory(project, event, baseDir)
             } else {

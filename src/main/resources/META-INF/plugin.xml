@@ -86,6 +86,7 @@
       text="Add to Codex UI"
       description="Send the current selection or file to the Codex UI terminal"
       icon="icons/codex_active.svg">
+      <keyboard-shortcut keymap="$default" first-keystroke="control alt K"/>
       <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="Copy"/>
       <add-to-group group-id="EditorTabPopupMenu" anchor="last"/>
       <add-to-group group-id="Floating.CodeToolbar" anchor="last"/>

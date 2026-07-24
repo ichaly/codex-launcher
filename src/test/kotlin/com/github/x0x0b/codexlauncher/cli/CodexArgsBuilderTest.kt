@@ -250,6 +250,26 @@ class CodexArgsBuilderTest {
     }
 
     @Test
+    fun testMissingHttpPortSkipsNotifyWithoutBlockingOtherArgs() {
+        val osProvider = TestOsProvider(isWindows = false)
+        state.model = Model.DEFAULT
+        state.modelReasoningEffort = ModelReasoningEffort.HIGH
+        state.enableNotification = true
+        state.openFileOnChange = true
+        state.mcpConfigInput = ""
+
+        val result = CodexArgsBuilder.build(state, port = null, osProvider = osProvider)
+
+        assertEquals(
+            listOf(
+                """-c""",
+                """'model_reasoning_effort=high'"""
+            ),
+            result
+        )
+    }
+
+    @Test
     fun testSelectedModuleDirectoryAddsCdArgument() {
         val settingsState = CodexLauncherSettings.State().apply {
             useSelectedModuleDirectory = true
