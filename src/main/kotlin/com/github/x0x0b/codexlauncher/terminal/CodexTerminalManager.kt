@@ -182,7 +182,7 @@ class CodexTerminalManager(private val project: Project) {
         val plan = scriptFactory.buildPlan(command) ?: return false
 
         return try {
-            widget.sendCommandToExecute(plan.command)
+            invokeTerminalMethod(widget, "sendCommandToExecute", plan.command)
             true
         } catch (throwable: Throwable) {
             logger.warn("Failed to execute Codex command", throwable)
@@ -219,13 +219,23 @@ class CodexTerminalManager(private val project: Project) {
     }
 
     private fun typeText(widget: TerminalWidget, text: String): Boolean {
-        val connector = runCatching { widget.ttyConnector }.getOrNull()
+        val connector = findTerminalMethod(widget, "getTtyConnector")?.let { method ->
+            runCatching { method.invoke(widget) }.getOrNull()
+        }
         if (connector != null) {
-            return runCatching {
-                connector.write(text)
-                true
-            }.getOrElse {
-                logger.warn("Failed to write to Codex UI terminal connector", it)
+            val writeMethod = connector.javaClass.methods.firstOrNull { method ->
+                method.name == "write" && method.parameterTypes.contentEquals(arrayOf(String::class.java))
+            }
+            if (writeMethod != null) {
+                return runCatching {
+                    writeMethod.invoke(connector, text)
+                    true
+                }.getOrElse {
+                    logger.warn("Failed to write to Codex UI terminal connector", it)
+                    false
+                }
+            } else {
+                logger.warn("Terminal connector does not expose a writable channel")
                 false
             }
         }
@@ -257,4 +267,15 @@ class CodexTerminalManager(private val project: Project) {
 
         return false
     }
+
+    private fun invokeTerminalMethod(widget: TerminalWidget, methodName: String, argument: String) {
+        val method = findTerminalMethod(widget, methodName)
+            ?: error("Terminal method unavailable: $methodName")
+        method.invoke(widget, argument)
+    }
+
+    private fun findTerminalMethod(widget: TerminalWidget, methodName: String) =
+        widget.javaClass.methods.firstOrNull { method ->
+            method.name == methodName && method.parameterTypes.contentEquals(arrayOf(String::class.java))
+        }
 }
