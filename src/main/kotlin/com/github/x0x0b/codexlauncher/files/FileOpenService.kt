@@ -9,6 +9,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
+import java.util.concurrent.Callable
 import com.intellij.openapi.vcs.changes.ChangeListManager
 import com.github.x0x0b.codexlauncher.settings.CodexLauncherSettings
 import com.intellij.openapi.vcs.changes.InvokeAfterUpdateMode
@@ -87,7 +88,7 @@ class FileOpenService(private val project: Project) : Disposable {
         thresholdTime: Long,
         filesToOpen: MutableSet<VirtualFile>
     ) {
-        val changedFiles = ReadAction.compute<Set<VirtualFile>, RuntimeException> {
+        val changedFiles = ReadAction.nonBlocking(Callable {
             buildSet {
                 val allChanges = changeListManager.allChanges
                 for (change in allChanges) {
@@ -101,7 +102,7 @@ class FileOpenService(private val project: Project) : Disposable {
                     }
                 }
             }
-        }
+        }).executeSynchronously()
         filesToOpen.addAll(changedFiles)
     }
     
@@ -113,7 +114,7 @@ class FileOpenService(private val project: Project) : Disposable {
         thresholdTime: Long,
         filesToOpen: MutableSet<VirtualFile>
     ) {
-        val changedFiles = ReadAction.compute<Set<VirtualFile>, RuntimeException> {
+        val changedFiles = ReadAction.nonBlocking(Callable {
             buildSet {
                 val untrackedFilePaths = changeListManager.unversionedFilesPaths
                 for (untrackedPath in untrackedFilePaths) {
@@ -125,7 +126,7 @@ class FileOpenService(private val project: Project) : Disposable {
                     }
                 }
             }
-        }
+        }).executeSynchronously()
         filesToOpen.addAll(changedFiles)
     }
     
