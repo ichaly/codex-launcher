@@ -5,7 +5,6 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Key
-import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.terminal.ui.TerminalWidget
 import com.intellij.ui.content.Content
 
@@ -145,8 +144,15 @@ class CodexTerminalManager(private val project: Project) {
 
     private fun resolveTerminalToolWindow(manager: Any) = invokeManagerMethod(manager, "getToolWindow")
         ?.let { it as? com.intellij.openapi.wm.ToolWindow }
-        ?: ToolWindowManager.getInstance(project)
-            .getToolWindow("Terminal")
+        ?: fallbackTerminalToolWindow()
+
+    private fun fallbackTerminalToolWindow(): com.intellij.openapi.wm.ToolWindow? {
+        val managerClass = Class.forName("com.intellij.openapi.wm.ToolWindowManager")
+        val companion = managerClass.getField("Companion").get(null)
+        val manager = invokeMethod(companion, "getInstance", project)
+        return manager?.let { invokeMethod(it, "getToolWindow", "Terminal") }
+            as? com.intellij.openapi.wm.ToolWindow
+    }
 
     private fun nextCodexTerminalName(manager: Any): String {
         val count = locateCodexTerminals(manager).size
