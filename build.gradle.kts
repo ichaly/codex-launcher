@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.github.ichaly"
-version = "1.1.22"
+version = "1.1.23"
 
 repositories {
     mavenCentral()

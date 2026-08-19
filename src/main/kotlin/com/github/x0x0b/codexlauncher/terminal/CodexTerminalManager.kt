@@ -130,9 +130,9 @@ class CodexTerminalManager(private val project: Project) {
                     contentManager.setSelectedContent(terminal.content, true)
                 }
 
-                toolWindow.activate({
+                invokeMethod(toolWindow, "activate", Runnable {
                     try {
-                        terminal.widget.requestFocus()
+                        invokeMethod(terminal.widget, "requestFocus")
                     } catch (focusError: Throwable) {
                         logger.warn("Failed to request focus for Codex UI terminal", focusError)
                     }
@@ -290,13 +290,17 @@ class CodexTerminalManager(private val project: Project) {
             ?.let { it.javaClass.getMethod("getContent").invoke(it) as? Content }
 
     private fun invokeManagerMethod(manager: Any, methodName: String, vararg arguments: Any?): Any? {
-        val method = manager.javaClass.methods.firstOrNull { candidate ->
+        return invokeMethod(manager, methodName, *arguments)
+    }
+
+    private fun invokeMethod(target: Any, methodName: String, vararg arguments: Any?): Any? {
+        val method = target.javaClass.methods.firstOrNull { candidate ->
             candidate.name == methodName && candidate.parameterCount == arguments.size &&
                 candidate.parameterTypes.withIndex().all { (index, type) ->
                     val argument = arguments[index]
                     argument == null || type.isAssignableFrom(argument.javaClass)
                 }
         } ?: error("Terminal manager method unavailable: $methodName")
-        return method.invoke(manager, *arguments)
+        return method.invoke(target, *arguments)
     }
 }
