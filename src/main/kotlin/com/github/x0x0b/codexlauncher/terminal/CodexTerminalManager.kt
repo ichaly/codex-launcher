@@ -8,8 +8,6 @@ import com.intellij.openapi.util.Key
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.terminal.ui.TerminalWidget
 import com.intellij.ui.content.Content
-import org.jetbrains.plugins.terminal.TerminalToolWindowManager
-import org.jetbrains.plugins.terminal.TerminalToolWindowFactory
 
 /**
  * Project-level service responsible for managing Codex UI terminals.
@@ -32,7 +30,7 @@ class CodexTerminalManager(private val project: Project) {
      * @throws Throwable when terminal creation or command execution fails.
      */
     fun launch(baseDir: String, command: String) {
-        val terminalManager = TerminalToolWindowManager.getInstance(project)
+        val terminalManager = terminalManager()
         val terminalName = nextCodexTerminalName(terminalManager)
 
         var widget: TerminalWidget? = null
@@ -53,7 +51,7 @@ class CodexTerminalManager(private val project: Project) {
 
     fun hasCodexTerminal(): Boolean {
         return try {
-            val terminalManager = TerminalToolWindowManager.getInstance(project)
+            val terminalManager = terminalManager()
             locateCodexTerminals(terminalManager).isNotEmpty()
         } catch (t: Throwable) {
             logger.warn("Failed to inspect Codex UI terminal availability", t)
@@ -63,7 +61,7 @@ class CodexTerminalManager(private val project: Project) {
 
     fun typeIntoCodexTerminal(text: String): Boolean {
         return try {
-            val terminalManager = TerminalToolWindowManager.getInstance(project)
+            val terminalManager = terminalManager()
             val terminals = locateCodexTerminals(terminalManager)
             val selectedContent = resolveTerminalToolWindow(terminalManager)
                 ?.contentManager
@@ -85,14 +83,17 @@ class CodexTerminalManager(private val project: Project) {
         }
     }
 
-    private fun locateCodexTerminals(manager: TerminalToolWindowManager): List<CodexTerminal> = try {
-        manager.getTerminalWidgets().asSequence().mapNotNull { widget ->
-            val content = manager.getContainer(widget)?.content ?: return@mapNotNull null
+    private fun locateCodexTerminals(manager: Any): List<CodexTerminal> = try {
+        invokeManagerMethod(manager, "getTerminalWidgets")
+            .let { it as? Iterable<*> ?: emptyList<Any>() }
+            .asSequence().mapNotNull { widget ->
+            val terminalWidget = widget as? TerminalWidget ?: return@mapNotNull null
+            val content = managerContainer(manager, terminalWidget) ?: return@mapNotNull null
             val isCodex = isCodexTerminalContent(content)
             if (!isCodex) {
                 return@mapNotNull null
             }
-            CodexTerminal(widget, content)
+            CodexTerminal(terminalWidget, content)
         }.toList()
     } catch (t: Throwable) {
         logger.warn("Failed to inspect existing terminal widgets", t)
@@ -109,7 +110,7 @@ class CodexTerminalManager(private val project: Project) {
     }
 
     private fun focusCodexTerminal(
-        manager: TerminalToolWindowManager,
+        manager: Any,
         terminal: CodexTerminal
     ) {
         ApplicationManager.getApplication().invokeLater {
@@ -142,20 +143,19 @@ class CodexTerminalManager(private val project: Project) {
         }
     }
 
-    private fun resolveTerminalToolWindow(
-        manager: TerminalToolWindowManager
-    ) = manager.getToolWindow()
+    private fun resolveTerminalToolWindow(manager: Any) = invokeManagerMethod(manager, "getToolWindow")
+        ?.let { it as? com.intellij.openapi.wm.ToolWindow }
         ?: ToolWindowManager.getInstance(project)
-            .getToolWindow(TerminalToolWindowFactory.TOOL_WINDOW_ID)
+            .getToolWindow("Terminal")
 
-    private fun nextCodexTerminalName(manager: TerminalToolWindowManager): String {
+    private fun nextCodexTerminalName(manager: Any): String {
         val count = locateCodexTerminals(manager).size
         return if (count == 0) "Codex UI" else "Codex UI (${count + 1})"
     }
 
-    private fun markCodexTerminal(manager: TerminalToolWindowManager, widget: TerminalWidget, displayName: String): Content? {
+    private fun markCodexTerminal(manager: Any, widget: TerminalWidget, displayName: String): Content? {
         return try {
-            manager.getContainer(widget)?.content?.also { content ->
+            managerContainer(manager, widget)?.also { content ->
                 content.putUserData(CODEX_TERMINAL_KEY, true)
                 content.displayName = displayName
             }
@@ -165,9 +165,9 @@ class CodexTerminalManager(private val project: Project) {
         }
     }
 
-    private fun clearCodexMetadata(manager: TerminalToolWindowManager, widget: TerminalWidget) {
+    private fun clearCodexMetadata(manager: Any, widget: TerminalWidget) {
         try {
-            manager.getContainer(widget)?.content?.let { content ->
+            managerContainer(manager, widget)?.let { content ->
                 content.putUserData(CODEX_TERMINAL_KEY, null)
             }
         } catch (t: Throwable) {
@@ -192,7 +192,7 @@ class CodexTerminalManager(private val project: Project) {
     }
 
     private fun createTerminalWidget(
-        manager: TerminalToolWindowManager,
+        manager: Any,
         baseDir: String,
         terminalName: String
     ): TerminalWidget {
@@ -278,4 +278,25 @@ class CodexTerminalManager(private val project: Project) {
         widget.javaClass.methods.firstOrNull { method ->
             method.name == methodName && method.parameterTypes.contentEquals(arrayOf(String::class.java))
         }
+
+    private fun terminalManager(): Any {
+        val managerClass = Class.forName("org.jetbrains.plugins.terminal.TerminalToolWindowManager")
+        val getInstance = managerClass.getMethod("getInstance", Project::class.java)
+        return getInstance.invoke(null, project)
+    }
+
+    private fun managerContainer(manager: Any, widget: TerminalWidget): Content? =
+        invokeManagerMethod(manager, "getContainer", widget)
+            ?.let { it.javaClass.getMethod("getContent").invoke(it) as? Content }
+
+    private fun invokeManagerMethod(manager: Any, methodName: String, vararg arguments: Any?): Any? {
+        val method = manager.javaClass.methods.firstOrNull { candidate ->
+            candidate.name == methodName && candidate.parameterCount == arguments.size &&
+                candidate.parameterTypes.withIndex().all { (index, type) ->
+                    val argument = arguments[index]
+                    argument == null || type.isAssignableFrom(argument.javaClass)
+                }
+        } ?: error("Terminal manager method unavailable: $methodName")
+        return method.invoke(manager, *arguments)
+    }
 }
