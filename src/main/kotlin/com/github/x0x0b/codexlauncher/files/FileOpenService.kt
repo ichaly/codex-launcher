@@ -6,7 +6,6 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.vfs.LocalFileSystem
 import com.intellij.openapi.vfs.VirtualFile
 import java.util.concurrent.Callable
@@ -88,7 +87,7 @@ class FileOpenService(private val project: Project) : Disposable {
         thresholdTime: Long,
         filesToOpen: MutableSet<VirtualFile>
     ) {
-        val changedFiles = ReadAction.nonBlocking(Callable {
+        val changedFiles = executeReadAction(Callable {
             buildSet {
                 val allChanges = changeListManager.allChanges
                 for (change in allChanges) {
@@ -102,7 +101,7 @@ class FileOpenService(private val project: Project) : Disposable {
                     }
                 }
             }
-        }).executeSynchronously()
+        })
         filesToOpen.addAll(changedFiles)
     }
     
@@ -114,7 +113,7 @@ class FileOpenService(private val project: Project) : Disposable {
         thresholdTime: Long,
         filesToOpen: MutableSet<VirtualFile>
     ) {
-        val changedFiles = ReadAction.nonBlocking(Callable {
+        val changedFiles = executeReadAction(Callable {
             buildSet {
                 val untrackedFilePaths = changeListManager.unversionedFilesPaths
                 for (untrackedPath in untrackedFilePaths) {
@@ -126,7 +125,7 @@ class FileOpenService(private val project: Project) : Disposable {
                     }
                 }
             }
-        }).executeSynchronously()
+        })
         filesToOpen.addAll(changedFiles)
     }
     
@@ -149,6 +148,17 @@ class FileOpenService(private val project: Project) : Disposable {
     private fun isProjectFile(filePath: String): Boolean {
         val projectBasePath = project.basePath ?: return false
         return filePath.startsWith(projectBasePath) && !filePath.endsWith("/")
+    }
+
+    private fun <T> executeReadAction(task: Callable<T>): T {
+        val readActionClass = Class.forName("com.intellij.openapi.application.ReadAction")
+        val nonBlocking = readActionClass.methods.first { method ->
+            method.name == "nonBlocking" && method.parameterTypes.contentEquals(arrayOf(Callable::class.java))
+        }.invoke(null, task)
+        @Suppress("UNCHECKED_CAST")
+        return nonBlocking.javaClass.methods.first { method ->
+            method.name == "executeSynchronously" && method.parameterCount == 0
+        }.invoke(nonBlocking) as T
     }
 
     private fun openFileInEditor(file: VirtualFile) {
