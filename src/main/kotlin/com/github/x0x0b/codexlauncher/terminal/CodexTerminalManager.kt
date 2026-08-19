@@ -37,7 +37,7 @@ class CodexTerminalManager(private val project: Project) {
 
         var widget: TerminalWidget? = null
         try {
-            widget = terminalManager.createShellWidget(baseDir, terminalName, true, true)
+            widget = terminalManager.createNewSession(baseDir, terminalName, null, true, true)
             val content = markCodexTerminal(terminalManager, widget, terminalName)
             if (!sendCommandToTerminal(widget, command)) {
                 throw IllegalStateException("Failed to execute Codex command")
@@ -86,7 +86,7 @@ class CodexTerminalManager(private val project: Project) {
     }
 
     private fun locateCodexTerminals(manager: TerminalToolWindowManager): List<CodexTerminal> = try {
-        manager.terminalWidgets.asSequence().mapNotNull { widget ->
+        manager.getTerminalWidgets().asSequence().mapNotNull { widget ->
             val content = manager.getContainer(widget)?.content ?: return@mapNotNull null
             val isCodex = isCodexTerminalContent(content)
             if (!isCodex) {
