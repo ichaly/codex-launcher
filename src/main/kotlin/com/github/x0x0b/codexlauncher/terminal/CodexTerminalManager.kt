@@ -37,7 +37,7 @@ class CodexTerminalManager(private val project: Project) {
 
         var widget: TerminalWidget? = null
         try {
-            widget = terminalManager.createNewSession(baseDir, terminalName, null, true, true)
+            widget = createTerminalWidget(terminalManager, baseDir, terminalName)
             val content = markCodexTerminal(terminalManager, widget, terminalName)
             if (!sendCommandToTerminal(widget, command)) {
                 throw IllegalStateException("Failed to execute Codex command")
@@ -189,6 +189,33 @@ class CodexTerminalManager(private val project: Project) {
             runCatching { plan.cleanupOnFailure() }
             false
         }
+    }
+
+    private fun createTerminalWidget(
+        manager: TerminalToolWindowManager,
+        baseDir: String,
+        terminalName: String
+    ): TerminalWidget {
+        val booleanType = Boolean::class.javaPrimitiveType
+            ?: error("Boolean primitive type is unavailable")
+        val methods = manager.javaClass.methods
+        val newSession = methods.firstOrNull { method ->
+            method.name == "createNewSession" && method.parameterTypes.contentEquals(
+                arrayOf(String::class.java, String::class.java, List::class.java, booleanType, booleanType)
+            )
+        }
+        val shellWidget = methods.firstOrNull { method ->
+            method.name == "createShellWidget" && method.parameterTypes.contentEquals(
+                arrayOf(String::class.java, String::class.java, booleanType, booleanType)
+            )
+        }
+        val method = newSession ?: shellWidget ?: error("Terminal session creation API is unavailable")
+        val arguments = if (method === newSession) {
+            arrayOf<Any?>(baseDir, terminalName, null, true, true)
+        } else {
+            arrayOf<Any?>(baseDir, terminalName, true, true)
+        }
+        return method.invoke(manager, *arguments) as TerminalWidget
     }
 
     private fun typeText(widget: TerminalWidget, text: String): Boolean {

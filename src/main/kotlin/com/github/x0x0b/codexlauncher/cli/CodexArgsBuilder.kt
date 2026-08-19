@@ -8,7 +8,6 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
 import com.google.gson.JsonSyntaxException
-import groovy.json.StringEscapeUtils
 import com.intellij.openapi.application.ApplicationInfo
 import com.intellij.openapi.util.SystemInfo
 
@@ -196,14 +195,30 @@ object CodexArgsBuilder {
         return if (osProvider.isWindows && winShell != WinShell.WSL) {
             if (winShell == WinShell.POWERSHELL_73_PLUS) {
                 // PowerShell 7.3+ on Windows
-                argsArray.joinToString(", ") { "\"${StringEscapeUtils.escapeJava(it.asString)}\"" }
+                argsArray.joinToString(", ") { "\"${escapeJsonString(it.asString)}\"" }
             } else {
                 // Pre PowerShell 7.3 on Windows
-                argsArray.joinToString(", ") { "\\\"${StringEscapeUtils.escapeJava(it.asString)}\\\"" }
+                argsArray.joinToString(", ") { "\\\"${escapeJsonString(it.asString)}\\\"" }
             }
         } else {
             // Non-Windows OS or Windows/WSL
             argsArray.joinToString(", ") { "\"${it.asString}\"" }
+        }
+    }
+
+    private fun escapeJsonString(value: String): String = buildString(value.length) {
+        value.forEach { character ->
+            when (character) {
+                '\\' -> append("\\\\")
+                '"' -> append("\\\"")
+                '\b' -> append("\\b")
+                '\u000C' -> append("\\f")
+                '\n' -> append("\\n")
+                '\r' -> append("\\r")
+                '\t' -> append("\\t")
+                in '\u0000'..'\u001F' -> append("\\u%04x".format(character.code))
+                else -> append(character)
+            }
         }
     }
 

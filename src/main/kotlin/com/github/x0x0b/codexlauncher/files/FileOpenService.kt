@@ -87,19 +87,22 @@ class FileOpenService(private val project: Project) : Disposable {
         thresholdTime: Long,
         filesToOpen: MutableSet<VirtualFile>
     ) {
-        ReadAction.run<RuntimeException> {
-            val allChanges = changeListManager.allChanges
-            for (change in allChanges) {
-                val virtualFile = change.afterRevision?.file?.virtualFile
-                    ?: change.beforeRevision?.file?.virtualFile
+        val changedFiles = ReadAction.compute<Set<VirtualFile>, RuntimeException> {
+            buildSet {
+                val allChanges = changeListManager.allChanges
+                for (change in allChanges) {
+                    val virtualFile = change.afterRevision?.file?.virtualFile
+                        ?: change.beforeRevision?.file?.virtualFile
 
-                virtualFile?.let { file ->
-                    if (isRecentlyModifiedProjectFile(file, thresholdTime)) {
-                        filesToOpen.add(file)
+                    virtualFile?.let { file ->
+                        if (isRecentlyModifiedProjectFile(file, thresholdTime)) {
+                            add(file)
+                        }
                     }
                 }
             }
         }
+        filesToOpen.addAll(changedFiles)
     }
     
     /**
@@ -110,17 +113,20 @@ class FileOpenService(private val project: Project) : Disposable {
         thresholdTime: Long,
         filesToOpen: MutableSet<VirtualFile>
     ) {
-        ReadAction.run<RuntimeException> {
-            val untrackedFilePaths = changeListManager.unversionedFilesPaths
-            for (untrackedPath in untrackedFilePaths) {
-                val virtualFile = LocalFileSystem.getInstance().findFileByPath(untrackedPath.toString())
-                virtualFile?.let { file ->
-                    if (isRecentlyModifiedProjectFile(file, thresholdTime)) {
-                        filesToOpen.add(file)
+        val changedFiles = ReadAction.compute<Set<VirtualFile>, RuntimeException> {
+            buildSet {
+                val untrackedFilePaths = changeListManager.unversionedFilesPaths
+                for (untrackedPath in untrackedFilePaths) {
+                    val virtualFile = LocalFileSystem.getInstance().findFileByPath(untrackedPath.toString())
+                    virtualFile?.let { file ->
+                        if (isRecentlyModifiedProjectFile(file, thresholdTime)) {
+                            add(file)
+                        }
                     }
                 }
             }
         }
+        filesToOpen.addAll(changedFiles)
     }
     
     /**
