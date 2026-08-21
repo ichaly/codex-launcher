@@ -225,13 +225,12 @@ class CodexTerminalManager(private val project: Project) {
     }
 
     private fun typeText(widget: TerminalWidget, text: String): Boolean {
-        val connector = findTerminalMethod(widget, "getTtyConnector")?.let { method ->
+        val connectorMethod = findTerminalMethod("getTtyConnector")
+        val connector = connectorMethod?.let { method ->
             runCatching { method.invoke(widget) }.getOrNull()
         }
         if (connector != null) {
-            val writeMethod = connector.javaClass.methods.firstOrNull { method ->
-                method.name == "write" && method.parameterTypes.contentEquals(arrayOf(String::class.java))
-            }
+            val writeMethod = connectorMethod.returnType.findPublicMethod("write", String::class.java)
             if (writeMethod != null) {
                 return runCatching {
                     writeMethod.invoke(connector, text)
@@ -275,15 +274,13 @@ class CodexTerminalManager(private val project: Project) {
     }
 
     private fun invokeTerminalMethod(widget: TerminalWidget, methodName: String, argument: String) {
-        val method = findTerminalMethod(widget, methodName)
+        val method = findTerminalMethod(methodName, String::class.java)
             ?: error("Terminal method unavailable: $methodName")
         method.invoke(widget, argument)
     }
 
-    private fun findTerminalMethod(widget: TerminalWidget, methodName: String) =
-        widget.javaClass.methods.firstOrNull { method ->
-            method.name == methodName && method.parameterTypes.contentEquals(arrayOf(String::class.java))
-        }
+    private fun findTerminalMethod(methodName: String, vararg parameterTypes: Class<*>) =
+        TerminalWidget::class.java.findPublicMethod(methodName, *parameterTypes)
 
     private fun terminalManager(): Any {
         val managerClass = Class.forName("org.jetbrains.plugins.terminal.TerminalToolWindowManager")
@@ -310,3 +307,8 @@ class CodexTerminalManager(private val project: Project) {
         return method.invoke(target, *arguments)
     }
 }
+
+internal fun Class<*>.findPublicMethod(methodName: String, vararg parameterTypes: Class<*>) =
+    methods.firstOrNull { method ->
+        method.name == methodName && method.parameterTypes.contentEquals(parameterTypes)
+    }
