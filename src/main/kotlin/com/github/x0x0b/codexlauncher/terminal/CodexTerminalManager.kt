@@ -301,7 +301,7 @@ class CodexTerminalManager(private val project: Project) {
             candidate.name == methodName && candidate.parameterCount == arguments.size &&
                 candidate.parameterTypes.withIndex().all { (index, type) ->
                     val argument = arguments[index]
-                    argument == null || type.isAssignableFrom(argument.javaClass)
+                    argument == null || type.acceptsArgumentType(argument.javaClass)
                 }
         } ?: error("Terminal manager method unavailable: $methodName")
         return method.invoke(target, *arguments)
@@ -310,5 +310,12 @@ class CodexTerminalManager(private val project: Project) {
 
 internal fun Class<*>.findPublicMethod(methodName: String, vararg parameterTypes: Class<*>) =
     methods.firstOrNull { method ->
-        method.name == methodName && method.parameterTypes.contentEquals(parameterTypes)
+        method.name == methodName && method.parameterTypes.size == parameterTypes.size &&
+            method.parameterTypes.withIndex().all { (index, type) ->
+                type.acceptsArgumentType(parameterTypes[index])
+            }
     }
+
+private fun Class<*>.acceptsArgumentType(argumentType: Class<*>): Boolean =
+    isAssignableFrom(argumentType) ||
+        (this == Boolean::class.javaPrimitiveType && argumentType == Boolean::class.javaObjectType)

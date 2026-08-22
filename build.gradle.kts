@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.github.ichaly"
-version = "1.1.27"
+version = "1.1.28"
 
 repositories {
     mavenCentral()
@@ -37,9 +37,7 @@ intellijPlatform {
         }
 
         changeNotes = """
-            Replace Groovy and internal IntelliJ API dependencies with compatibility-safe implementations.
-            Add the GPT-5.6 model family, remove obsolete model choices and CLI options, and allow launches to use the module selected in Project View as the working directory.
-            Add Ctrl+Alt+K for sending editor context to Codex, target only the selected Codex terminal, and keep launch available when the optional HTTP callback service is unavailable.
+            Fix Add to Codex UI so the selected Codex terminal is activated and receives keyboard focus after context is inserted.
         """.trimIndent()
     }
     pluginVerification {

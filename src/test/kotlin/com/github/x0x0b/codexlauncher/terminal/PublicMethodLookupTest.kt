@@ -17,6 +17,17 @@ class PublicMethodLookupTest {
         assertEquals("codex", target.executedCommand)
     }
 
+    @Test
+    fun findPublicMethod_boxedBoolean_matchesPrimitiveBooleanParameter() {
+        val method = FocusTarget::class.java.findPublicMethod(
+            "activate",
+            Runnable::class.java,
+            Boolean::class.javaObjectType,
+        )
+
+        assertNotNull(method)
+    }
+
     interface CommandTarget {
         var executedCommand: String?
 
@@ -29,5 +40,9 @@ class PublicMethodLookupTest {
         override fun execute(command: String) {
             executedCommand = command
         }
+    }
+
+    interface FocusTarget {
+        fun activate(callback: Runnable, autoFocusContents: Boolean)
     }
 }
