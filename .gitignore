@@ -49,3 +49,4 @@ gha-creds-*.json
 .idea
 .tool-versions
 /.gradle-user-home/
+/.codex/
